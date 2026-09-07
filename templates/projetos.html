@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titulo %}Projetos{% endblock %}
+
+{% block conteudo %}
+<h1>Projetos</h1>
+<p class="legenda">Obras às quais as notas são atribuídas.</p>
+
+{% if current_user.papel == 'admin' %}
+<form method="post" class="cartao">
+  <div class="grade">
+    <div class="campo">
+      <label for="nome">Nome do projeto</label>
+      <input id="nome" name="nome" required placeholder="APOIO 04">
+    </div>
+    <div class="campo">
+      <label for="unidades">Quantidade de unidades</label>
+      <input id="unidades" name="unidades" type="number" min="0" required value="0">
+    </div>
+  </div>
+  <div class="acoes"><button type="submit">Cadastrar projeto</button></div>
+</form>
+{% else %}
+<p class="legenda">Somente o administrador cadastra e edita projetos.</p>
+{% endif %}
+
+<h2>Cadastrados</h2>
+{% if projetos %}
+<div class="quadro">
+<table>
+  <tr>
+    <th>Projeto</th><th>Situação</th><th class="valor">Qtd. unidades</th>
+    {% if current_user.papel == 'admin' %}<th></th>{% endif %}
+  </tr>
+  {% for p in projetos %}
+  <tr>
+    {% if current_user.papel == 'admin' %}
+    <form method="post" action="{{ url_for('editar_projeto', id_=p.id) }}" id="projeto-{{ p.id }}"></form>
+    <td><input name="nome" form="projeto-{{ p.id }}" value="{{ p.nome }}"></td>
+    <td>
+      <span class="marca-situacao {{ 'm-pago' if p.ativo else 'm-aberto' }}">{{ p.situacao }}</span>
+    </td>
+    <td class="valor">
+      <input name="unidades" form="projeto-{{ p.id }}" type="number" min="0"
+             value="{{ p.unidades }}" style="max-width:110px">
+    </td>
+    <td class="acao em-linha">
+      <button type="submit" form="projeto-{{ p.id }}" class="discreto mini">Salvar</button>
+      <form method="post" action="{{ url_for('alternar_projeto', id_=p.id) }}">
+        <button type="submit" class="discreto mini">{{ 'Concluir' if p.ativo else 'Reabrir' }}</button>
+      </form>
+    </td>
+    {% else %}
+    <td>{{ p.nome }}</td>
+    <td><span class="marca-situacao {{ 'm-pago' if p.ativo else 'm-aberto' }}">{{ p.situacao }}</span></td>
+    <td class="valor">{{ p.unidades }}</td>
+    {% endif %}
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% else %}
+<p class="vazio">Nenhum projeto cadastrado.</p>
+{% endif %}
+{% endblock %}

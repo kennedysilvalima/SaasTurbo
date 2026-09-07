@@ -12,7 +12,7 @@ from flask_login import (LoginManager, current_user, login_required,
 from sqlalchemy import func
 
 import extratores
-from models import (CentroCusto, Empresa, Fornecedor, NotaFiscal, Papel,
+from models import (Empresa, Fornecedor, NotaFiscal, Papel, Projeto,
                     SolicitacaoCancelamento, StatusNota, StatusSolicitacao,
                     StatusTitulo, Titulo, Usuario, db)
 
@@ -258,7 +258,7 @@ def nova_nota():
         if chave and da_empresa(NotaFiscal).filter_by(chave_acesso=chave).first():
             flash("Esta nota já foi lançada.", "erro")
             return render_template("nota_form.html", fornecedores=fornecedores,
-                                   centros=_centros_ativos(), dados=request.form)
+                                   projetos=_projetos_ativos(), dados=request.form)
 
         nota = NotaFiscal(
             empresa_id=current_user.empresa_id,
@@ -269,7 +269,7 @@ def nova_nota():
             data_emissao=_data(request.form["data_emissao"]),
             valor_total=_decimal(request.form["valor_total"]),
             tipo=request.form.get("tipo"),
-            centro_custo=request.form.get("centro_custo", "").strip() or None,
+            projeto=request.form.get("projeto", "").strip() or None,
             descricao=request.form.get("descricao", "").strip() or None,
             criada_por_id=current_user.id,
         )
@@ -294,7 +294,7 @@ def nova_nota():
         return redirect(url_for("notas"))
 
     return render_template("nota_form.html", fornecedores=fornecedores,
-                           centros=_centros_ativos(), dados={})
+                           projetos=_projetos_ativos(), dados={})
 
 
 @app.route("/notas/<int:id_>/cancelar", methods=["POST"])
@@ -335,7 +335,7 @@ def importar():
     fornecedores = da_empresa(Fornecedor).filter_by(ativo=True).order_by(
         Fornecedor.razao_social).all()
     return render_template("importar.html", fornecedores=fornecedores,
-                           centros=_centros_ativos())
+                           projetos=_projetos_ativos())
 
 
 @app.route("/importar/ler", methods=["POST"])
@@ -462,7 +462,7 @@ def salvar_importada():
         data_emissao=_data(request.form["data_emissao"]),
         valor_total=_decimal(request.form["valor_total"]),
         tipo=request.form.get("tipo"),
-        centro_custo=request.form.get("centro_custo", "").strip() or None,
+        projeto=request.form.get("projeto", "").strip() or None,
         criada_por_id=current_user.id,
     )
     db.session.add(nota)
@@ -539,7 +539,7 @@ def editar_nota(id_):
         nota.numero = request.form["numero"].strip()
         nota.serie = request.form.get("serie", "").strip() or None
         nota.data_emissao = _data(request.form["data_emissao"])
-        nota.centro_custo = request.form.get("centro_custo") or None
+        nota.projeto = request.form.get("projeto") or None
         nota.tipo = request.form.get("tipo")
         nota.descricao = request.form.get("descricao", "").strip() or None
 
@@ -561,7 +561,7 @@ def editar_nota(id_):
         return redirect(url_for("notas"))
 
     return render_template("nota_editar.html", nota=nota,
-                           centros=_centros_ativos())
+                           projetos=_projetos_ativos())
 
 
 @app.route("/titulos/<int:id_>/cancelar", methods=["POST"])
@@ -578,41 +578,77 @@ def cancelar_titulo(id_):
     return redirect(request.referrer or url_for("titulos"))
 
 
-def _centros_ativos():
-    return da_empresa(CentroCusto).filter_by(ativo=True).order_by(CentroCusto.nome).all()
+def _projetos_ativos():
+    return da_empresa(Projeto).filter_by(ativo=True).order_by(Projeto.nome).all()
 
 
-@app.route("/centros", methods=["GET", "POST"])
+@app.route("/projetos", methods=["GET", "POST"])
 @login_required
-def centros():
+def projetos():
     if request.method == "POST":
+        if current_user.papel != Papel.ADMIN:
+            abort(403)
+
         nome = request.form.get("nome", "").strip()
+        unidades = request.form.get("unidades", type=int)
+
         if not nome:
-            flash("Informe o nome do centro de custo.", "erro")
-        elif da_empresa(CentroCusto).filter_by(nome=nome).first():
-            flash("Já existe um centro de custo com esse nome.", "erro")
+            flash("Informe o nome do projeto.", "erro")
+        elif unidades is None or unidades < 0:
+            flash("Informe a quantidade de unidades.", "erro")
+        elif da_empresa(Projeto).filter_by(nome=nome).first():
+            flash("Já existe um projeto com esse nome.", "erro")
         else:
-            db.session.add(CentroCusto(
+            db.session.add(Projeto(
                 empresa_id=current_user.empresa_id,
                 nome=nome,
-                descricao=request.form.get("descricao", "").strip() or None,
+                unidades=unidades,
             ))
             db.session.commit()
-            flash("Centro de custo cadastrado.", "ok")
-        return redirect(url_for("centros"))
+            flash(f"Projeto {nome} cadastrado.", "ok")
+        return redirect(url_for("projetos"))
 
-    lista = da_empresa(CentroCusto).order_by(CentroCusto.nome).all()
-    return render_template("centros.html", centros=lista)
+    lista = da_empresa(Projeto).order_by(Projeto.ativo.desc(), Projeto.nome).all()
+    return render_template("projetos.html", projetos=lista)
 
 
-@app.route("/centros/<int:id_>/alternar", methods=["POST"])
+@app.route("/projetos/<int:id_>/editar", methods=["POST"])
 @login_required
-def alternar_centro(id_):
-    centro = buscar_ou_404(CentroCusto, id_)
-    centro.ativo = not centro.ativo
+@somente_admin
+def editar_projeto(id_):
+    projeto = buscar_ou_404(Projeto, id_)
+    nome = request.form.get("nome", "").strip()
+    unidades = request.form.get("unidades", type=int)
+
+    outro = da_empresa(Projeto).filter(
+        Projeto.nome == nome, Projeto.id != projeto.id).first()
+
+    if not nome or unidades is None or unidades < 0:
+        flash("Nome e quantidade de unidades são obrigatórios.", "erro")
+    elif outro:
+        flash("Já existe outro projeto com esse nome.", "erro")
+    else:
+        anterior = projeto.nome
+        projeto.nome = nome
+        projeto.unidades = unidades
+        if anterior != nome:
+            for nota in da_empresa(NotaFiscal).filter_by(projeto=anterior).all():
+                nota.projeto = nome
+        db.session.commit()
+        flash("Projeto atualizado.", "ok")
+
+    return redirect(url_for("projetos"))
+
+
+@app.route("/projetos/<int:id_>/alternar", methods=["POST"])
+@login_required
+@somente_admin
+def alternar_projeto(id_):
+    projeto = buscar_ou_404(Projeto, id_)
+    projeto.ativo = not projeto.ativo
     db.session.commit()
-    flash(f"Centro de custo {'reativado' if centro.ativo else 'desativado'}.", "ok")
-    return redirect(url_for("centros"))
+    flash(f"Projeto {'reaberto' if projeto.ativo else 'concluído'}.", "ok")
+    return redirect(url_for("projetos"))
 
 
 @app.route("/usuarios", methods=["GET", "POST"])
@@ -740,9 +776,9 @@ def _consulta_relatorio():
     if fornecedor_id:
         consulta = consulta.filter(NotaFiscal.fornecedor_id == fornecedor_id)
 
-    centro = request.args.get("centro")
-    if centro:
-        consulta = consulta.filter(NotaFiscal.centro_custo == centro)
+    projeto = request.args.get("projeto")
+    if projeto:
+        consulta = consulta.filter(NotaFiscal.projeto == projeto)
 
     situacao = request.args.get("situacao")
     if situacao == StatusTitulo.CANCELADO:
@@ -785,7 +821,7 @@ def relatorios():
         total=total, pago=pago, aberto=aberto, acrescimos=acrescimos,
         por_fornecedor=sorted(por_fornecedor.items(), key=lambda x: -x[1]),
         fornecedores=da_empresa(Fornecedor).order_by(Fornecedor.razao_social).all(),
-        centros=_centros_ativos(),
+        projetos=_projetos_ativos(),
         hoje=date.today(),
     )
 
@@ -797,7 +833,7 @@ def relatorio_csv():
     escritor = csv.writer(saida, delimiter=";")
     escritor.writerow([
         "Vencimento", "Situacao", "Fornecedor", "CNPJ", "Nota", "Parcela",
-        "Centro de custo", "Valor", "Data pagamento", "Valor pago",
+        "Projeto", "Valor", "Data pagamento", "Valor pago",
         "Juros", "Multa", "Desconto",
     ])
 
@@ -812,7 +848,7 @@ def relatorio_csv():
             t.nota.fornecedor.cnpj,
             t.nota.numero,
             f"{t.numero_parcela}/{t.total_parcelas}",
-            t.nota.centro_custo or "",
+            t.nota.projeto or "",
             br(t.valor),
             t.data_pagamento.strftime("%d/%m/%Y") if t.data_pagamento else "",
             br(t.valor_pago),

@@ -20,7 +20,7 @@
 
   <p class="grupo">Cadastros</p>
   <a href="{{ url_for('fornecedores') }}" class="{{ 'ativo' if request.endpoint in ['fornecedores','editar_fornecedor'] }}">Fornecedores</a>
-  <a href="{{ url_for('centros') }}" class="{{ 'ativo' if request.endpoint == 'centros' }}">Centros de custo</a>
+  <a href="{{ url_for('projetos') }}" class="{{ 'ativo' if request.endpoint == 'projetos' }}">Projetos</a>
   {% if current_user.papel == 'admin' %}
   <a href="{{ url_for('usuarios') }}" class="{{ 'ativo' if request.endpoint == 'usuarios' }}">Usuários</a>
   {% endif %}

@@ -65,10 +65,10 @@
       </select>
     </div>
     <div class="campo">
-      <label for="centro_custo">Centro de custo</label>
-      <select id="centro_custo" name="centro_custo">
-        <option value="">— nenhum —</option>
-        {% for c in centros %}<option value="{{ c.nome }}">{{ c.nome }}</option>{% endfor %}
+      <label for="projeto">Projeto</label>
+      <select id="projeto" name="projeto" required>
+        <option value="">Selecione o projeto</option>
+        {% for p in projetos %}<option value="{{ p.nome }}">{{ p.nome }}</option>{% endfor %}
       </select>
     </div>
   </div>

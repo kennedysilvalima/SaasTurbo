@@ -99,22 +99,26 @@ class Fornecedor(db.Model):
         return f"<Fornecedor {self.id} {self.razao_social}>"
 
 
-class CentroCusto(db.Model):
-    __tablename__ = "centro_custo"
+class Projeto(db.Model):
+    __tablename__ = "projeto"
     __table_args__ = (
-        db.UniqueConstraint("empresa_id", "nome", name="uq_centro_nome_empresa"),
+        db.UniqueConstraint("empresa_id", "nome", name="uq_projeto_nome_empresa"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresa.id"), nullable=False)
 
     nome = db.Column(db.String(80), nullable=False)
-    descricao = db.Column(db.String(200))
+    unidades = db.Column(db.Integer, default=0, nullable=False)
     ativo = db.Column(db.Boolean, default=True, nullable=False)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
+    @property
+    def situacao(self):
+        return "Ativo" if self.ativo else "Concluído"
+
     def __repr__(self):
-        return f"<CentroCusto {self.id} {self.nome}>"
+        return f"<Projeto {self.id} {self.nome}>"
 
 
 class NotaFiscal(db.Model):
@@ -144,7 +148,7 @@ class NotaFiscal(db.Model):
     valor_total = db.Column(db.Numeric(14, 2), nullable=False)
 
     tipo = db.Column(db.String(20))
-    centro_custo = db.Column(db.String(80))
+    projeto = db.Column("centro_custo", db.String(80))
     descricao = db.Column(db.Text)
 
     status = db.Column(db.String(20), default=StatusNota.PENDENTE, nullable=False)

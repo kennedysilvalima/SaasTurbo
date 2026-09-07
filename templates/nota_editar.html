@@ -32,14 +32,14 @@ estorne o pagamento antes, se precisar corrigir.</p>
              {{ 'readonly' if nota.tem_pagamento }}>
     </div>
     <div class="campo">
-      <label for="centro_custo">Centro de custo</label>
-      <select id="centro_custo" name="centro_custo">
-        <option value="">— nenhum —</option>
-        {% for c in centros %}
-          <option value="{{ c.nome }}" {{ 'selected' if nota.centro_custo == c.nome }}>{{ c.nome }}</option>
+      <label for="projeto">Projeto</label>
+      <select id="projeto" name="projeto" required>
+        <option value="">Selecione o projeto</option>
+        {% for p in projetos %}
+          <option value="{{ p.nome }}" {{ 'selected' if nota.projeto == p.nome }}>{{ p.nome }}</option>
         {% endfor %}
-        {% if nota.centro_custo and nota.centro_custo not in centros|map(attribute='nome')|list %}
-          <option value="{{ nota.centro_custo }}" selected>{{ nota.centro_custo }} (desativado)</option>
+        {% if nota.projeto and nota.projeto not in projetos|map(attribute='nome')|list %}
+          <option value="{{ nota.projeto }}" selected>{{ nota.projeto }} (concluído)</option>
         {% endif %}
       </select>
     </div>

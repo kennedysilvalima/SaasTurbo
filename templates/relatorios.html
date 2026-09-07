@@ -32,11 +32,11 @@
       </select>
     </div>
     <div class="campo">
-      <label for="centro">Centro de custo</label>
-      <select id="centro" name="centro">
+      <label for="projeto">Projeto</label>
+      <select id="projeto" name="projeto">
         <option value="">Todos</option>
-        {% for c in centros %}
-          <option value="{{ c.nome }}" {{ 'selected' if request.args.get('centro') == c.nome }}>{{ c.nome }}</option>
+        {% for p in projetos %}
+          <option value="{{ p.nome }}" {{ 'selected' if request.args.get('projeto') == p.nome }}>{{ p.nome }}</option>
         {% endfor %}
       </select>
     </div>
@@ -80,7 +80,7 @@
 <div class="quadro">
 <table>
   <tr>
-    <th>Vencimento</th><th>Fornecedor</th><th>Nota</th><th>Centro de custo</th>
+    <th>Vencimento</th><th>Fornecedor</th><th>Nota</th><th>Projeto</th>
     <th class="valor">Valor</th><th>Pagamento</th><th class="valor">Pago</th>
   </tr>
   {% for t in linhas %}
@@ -88,7 +88,7 @@
     <td>{{ t.vencimento|data_br }}</td>
     <td>{{ t.nota.fornecedor.razao_social }}</td>
     <td>{{ t.nota.numero }} — {{ t.numero_parcela }}/{{ t.total_parcelas }}</td>
-    <td>{{ t.nota.centro_custo or '—' }}</td>
+    <td>{{ t.nota.projeto or '—' }}</td>
     <td class="valor">{{ t.valor|moeda }}</td>
     <td>{{ t.data_pagamento|data_br }}</td>
     <td class="valor">{{ t.valor_pago|moeda if t.valor_pago else '—' }}</td>
