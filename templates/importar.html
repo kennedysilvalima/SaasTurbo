@@ -149,6 +149,10 @@ function aplicar(dados) {
   const forn = dados.fornecedor || {};
   const seletor = document.getElementById('fornecedor_id');
   if (forn.id) {
+    if (!seletor.querySelector(`option[value="${forn.id}"]`)) {
+      const opcao = new Option(forn.razao_social, forn.id);
+      seletor.add(opcao);
+    }
     seletor.value = forn.id;
   } else if (forn.razao_social) {
     seletor.value = '';
@@ -165,7 +169,7 @@ function aplicar(dados) {
   }
   if (!tabela.querySelector('[name=parcela_vencimento]')) adicionarLinha({});
 
-  mostrarAvisos(dados.avisos || []);
+  mostrarAvisos(dados.avisos || [], dados.informacoes || []);
   formulario.hidden = false;
   conferir();
 }
@@ -207,15 +211,17 @@ function adicionarLinha(p) {
   linha.querySelectorAll('input').forEach(i => i.addEventListener('input', conferir));
 }
 
-function mostrarAvisos(avisos) {
+function mostrarAvisos(avisos, informacoes) {
   const caixa = document.getElementById('avisos');
   caixa.innerHTML = '';
-  avisos.forEach(texto => {
+  const escrever = (texto, classe) => {
     const p = document.createElement('p');
-    p.className = 'aviso erro';
+    p.className = `aviso ${classe}`;
     p.textContent = texto;
     caixa.appendChild(p);
-  });
+  };
+  informacoes.forEach(t => escrever(t, 'ok'));
+  avisos.forEach(t => escrever(t, 'erro'));
 }
 
 document.getElementById('adicionar').onclick = () => { adicionarLinha({}); conferir(); };

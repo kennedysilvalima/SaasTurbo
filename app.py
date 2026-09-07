@@ -421,17 +421,31 @@ def _organizar(leituras, esperado):
                 "linha_digitavel": leitura.get("linha_digitavel"),
             })
 
+    informacoes = []
     if fornecedor.get("cnpj"):
         existente = _fornecedor_por_cnpj(fornecedor["cnpj"])
-        fornecedor["id"] = existente.id if existente else None
-        if not existente:
-            avisos.append(
-                f"Fornecedor {fornecedor.get('razao_social', '')} ainda não cadastrado. "
-                f"Os dados foram preenchidos abaixo.")
+
+        if existente is None and fornecedor.get("razao_social"):
+            existente = Fornecedor(
+                empresa_id=current_user.empresa_id,
+                razao_social=fornecedor["razao_social"],
+                cnpj=fornecedor["cnpj"],
+            )
+            db.session.add(existente)
+            db.session.commit()
+            informacoes.append(
+                f"Fornecedor {existente.razao_social} cadastrado automaticamente.")
+
+        if existente is not None:
+            fornecedor["id"] = existente.id
+            fornecedor["razao_social"] = existente.razao_social
+        else:
+            fornecedor["id"] = None
+            avisos.append("Não foi possível identificar o fornecedor. Informe abaixo.")
 
     parcelas.sort(key=lambda p: p["vencimento"] or "")
     return {"tipo": esperado, "nota": nota, "parcelas": parcelas,
-            "fornecedor": fornecedor, "avisos": avisos}
+            "fornecedor": fornecedor, "avisos": avisos, "informacoes": informacoes}
 
 
 def _fornecedor_por_cnpj(cnpj):
@@ -439,6 +453,7 @@ def _fornecedor_por_cnpj(cnpj):
     if exato:
         return exato
     return da_empresa(Fornecedor).filter(Fornecedor.cnpj.like(cnpj[:8] + "%")).first()
+
 
 
 @app.route("/importar/salvar", methods=["POST"])
