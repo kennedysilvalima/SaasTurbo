@@ -7,6 +7,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
 
+
 class StatusNota:
     PENDENTE = "pendente"
     CANCELADA = "cancelada"
@@ -25,8 +26,6 @@ class Papel:
 
 
 class Empresa(db.Model):
-    """O cliente que aluga o sistema."""
-
     __tablename__ = "empresa"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -100,10 +99,7 @@ class Fornecedor(db.Model):
         return f"<Fornecedor {self.id} {self.razao_social}>"
 
 
-
 class CentroCusto(db.Model):
-    """Obra, setor ou projeto ao qual a despesa e atribuida."""
-
     __tablename__ = "centro_custo"
     __table_args__ = (
         db.UniqueConstraint("empresa_id", "nome", name="uq_centro_nome_empresa"),
@@ -122,13 +118,11 @@ class CentroCusto(db.Model):
 
 
 class NotaFiscal(db.Model):
-    """O documento fiscal: o que a empresa deve e por que."""
-
     __tablename__ = "nota_fiscal"
     __table_args__ = (
-        # Impede lancar a mesma nota duas vezes.
+
         db.UniqueConstraint("empresa_id", "chave_acesso", name="uq_nf_chave_empresa"),
-        # Rede de seguranca para notas de servico, que nem sempre tem chave.
+
         db.UniqueConstraint(
             "empresa_id", "fornecedor_id", "numero", "serie",
             name="uq_nf_numero_empresa",
@@ -149,7 +143,7 @@ class NotaFiscal(db.Model):
 
     valor_total = db.Column(db.Numeric(14, 2), nullable=False)
 
-    tipo = db.Column(db.String(20))            # produto / servico
+    tipo = db.Column(db.String(20))
     centro_custo = db.Column(db.String(80))
     descricao = db.Column(db.Text)
 
@@ -168,10 +162,14 @@ class NotaFiscal(db.Model):
     titulos = db.relationship(
         "Titulo", back_populates="nota", cascade="all, delete-orphan"
     )
+    solicitacoes = db.relationship(
+        "SolicitacaoCancelamento", back_populates="nota",
+        cascade="all, delete-orphan", order_by="SolicitacaoCancelamento.criada_em.desc()"
+    )
+
 
     @property
     def total_titulos(self):
-        """Soma dos titulos nao cancelados."""
         return sum(
             (t.valor for t in self.titulos if t.status != StatusTitulo.CANCELADO),
             Decimal("0.00"),
@@ -183,12 +181,10 @@ class NotaFiscal(db.Model):
 
     @property
     def fecha(self):
-        """True se a soma dos titulos bate com o valor da nota (tolerancia de centavos)."""
         return abs(self.diferenca) <= Decimal("0.02")
 
     @property
     def sem_titulos(self):
-        """Nota lancada mas ainda sem parcelas - situacao valida, mas precisa alertar."""
         return not any(t.status != StatusTitulo.CANCELADO for t in self.titulos)
 
     @property
@@ -201,11 +197,18 @@ class NotaFiscal(db.Model):
 
     @property
     def tem_pagamento(self):
-        """Nota com parcela ja paga nao pode ter valor ou parcelas alterados."""
         return any(t.status == StatusTitulo.PAGO for t in self.titulos)
 
+
+
+    @property
+    def solicitacao_pendente(self):
+        for s in self.solicitacoes:
+            if s.status == "pendente":
+                return s
+        return None
+
     def cancelar(self, usuario, motivo):
-        """Cancela a nota e os titulos ainda em aberto. Titulos pagos ficam intactos."""
         self.status = StatusNota.CANCELADA
         self.motivo_cancelamento = motivo
         self.cancelada_em = datetime.utcnow()
@@ -220,11 +223,6 @@ class NotaFiscal(db.Model):
 
 
 class Titulo(db.Model):
-    """A obrigacao de pagamento: boleto, PIX, transferencia.
-
-    Chamado de Titulo e nao de Boleto porque nem todo pagamento vem em boleto.
-    """
-
     __tablename__ = "titulo"
     __table_args__ = (
         db.Index("ix_titulo_empresa_venc", "empresa_id", "vencimento"),
@@ -242,7 +240,7 @@ class Titulo(db.Model):
     valor = db.Column(db.Numeric(14, 2), nullable=False)
 
     linha_digitavel = db.Column(db.String(60))
-    forma_pagamento = db.Column(db.String(30))   # boleto / pix / transferencia / debito
+    forma_pagamento = db.Column(db.String(30))
 
     data_pagamento = db.Column(db.Date)
     valor_pago = db.Column(db.Numeric(14, 2))
@@ -258,14 +256,13 @@ class Titulo(db.Model):
 
     nota = db.relationship("NotaFiscal", back_populates="titulos")
 
+
     @property
     def vencido(self):
-        """Calculado, nunca gravado. Status gravado exigiria rotina diaria e mentiria se falhasse."""
         return self.status == StatusTitulo.ABERTO and self.vencimento < date.today()
 
     @property
     def dias_para_vencer(self):
-        """Negativo quando ja venceu."""
         return (self.vencimento - date.today()).days
 
     @property
@@ -274,14 +271,14 @@ class Titulo(db.Model):
 
     @property
     def acrescimo(self):
-        """Quanto se pagou a mais (ou a menos) em relacao ao valor original."""
         if self.valor_pago is None:
             return Decimal("0.00")
         return self.valor_pago - self.valor
 
+
     def baixar(self, usuario, data_pagamento, valor_pago,
                juros=None, multa=None, desconto=None, observacao=None):
-        """Registra o pagamento."""
+
         if self.status != StatusTitulo.ABERTO:
             raise ValueError("Somente titulos em aberto podem ser baixados.")
 
@@ -296,7 +293,6 @@ class Titulo(db.Model):
             self.observacao = observacao
 
     def estornar(self, usuario, motivo):
-        """Desfaz a baixa. Titulo pago nao se edita: estorna e lanca de novo."""
         if self.status != StatusTitulo.PAGO:
             raise ValueError("Somente titulos pagos podem ser estornados.")
 
@@ -313,3 +309,54 @@ class Titulo(db.Model):
 
     def __repr__(self):
         return f"<Titulo {self.id} venc={self.vencimento} {self.status}>"
+
+
+class StatusSolicitacao:
+    PENDENTE = "pendente"
+    APROVADA = "aprovada"
+    RECUSADA = "recusada"
+
+
+class SolicitacaoCancelamento(db.Model):
+    __tablename__ = "solicitacao_cancelamento"
+
+    id = db.Column(db.Integer, primary_key=True)
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresa.id"), nullable=False)
+    nota_fiscal_id = db.Column(db.Integer, db.ForeignKey("nota_fiscal.id"), nullable=False)
+
+    solicitante_id = db.Column(db.Integer, db.ForeignKey("usuario.id"), nullable=False)
+    motivo = db.Column(db.Text, nullable=False)
+    criada_em = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    status = db.Column(db.String(20), default=StatusSolicitacao.PENDENTE, nullable=False)
+    decidida_por_id = db.Column(db.Integer, db.ForeignKey("usuario.id"))
+    decidida_em = db.Column(db.DateTime)
+    resposta = db.Column(db.Text)
+
+    nota = db.relationship("NotaFiscal", back_populates="solicitacoes")
+    solicitante = db.relationship("Usuario", foreign_keys=[solicitante_id])
+    decidida_por = db.relationship("Usuario", foreign_keys=[decidida_por_id])
+
+    @property
+    def pendente(self):
+        return self.status == StatusSolicitacao.PENDENTE
+
+    def aprovar(self, usuario, resposta=None):
+        if not self.pendente:
+            raise ValueError("Esta solicitação já foi respondida.")
+        self.status = StatusSolicitacao.APROVADA
+        self.decidida_por_id = usuario.id
+        self.decidida_em = datetime.utcnow()
+        self.resposta = resposta
+        self.nota.cancelar(usuario, f"{self.motivo} (solicitado por {self.solicitante.nome})")
+
+    def recusar(self, usuario, resposta):
+        if not self.pendente:
+            raise ValueError("Esta solicitação já foi respondida.")
+        self.status = StatusSolicitacao.RECUSADA
+        self.decidida_por_id = usuario.id
+        self.decidida_em = datetime.utcnow()
+        self.resposta = resposta
+
+    def __repr__(self):
+        return f"<SolicitacaoCancelamento {self.id} {self.status}>"

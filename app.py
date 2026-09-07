@@ -13,7 +13,8 @@ from sqlalchemy import func
 
 import extratores
 from models import (CentroCusto, Empresa, Fornecedor, NotaFiscal, Papel,
-                    StatusNota, StatusTitulo, Titulo, Usuario, db)
+                    SolicitacaoCancelamento, StatusNota, StatusSolicitacao,
+                    StatusTitulo, Titulo, Usuario, db)
 
 BASE = os.path.abspath(os.path.dirname(__file__))
 
@@ -23,7 +24,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URL", "sqlite:///" + os.path.join(BASE, "contas.sqlite3")
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024   # 20 MB por envio
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
 db.init_app(app)
 
@@ -36,9 +37,16 @@ login_manager.login_message = "Entre para continuar."
 def carregar_usuario(user_id):
     return db.session.get(Usuario, int(user_id))
 
+
 def da_empresa(modelo):
-    """Ponto unico de filtro por empresa. Toda consulta comeca por aqui."""
     return modelo.query.filter_by(empresa_id=current_user.empresa_id)
+
+
+def _titulos_validos():
+    return da_empresa(Titulo).join(NotaFiscal).filter(
+        Titulo.status != StatusTitulo.CANCELADO,
+        NotaFiscal.status != StatusNota.CANCELADA,
+    )
 
 
 def buscar_ou_404(modelo, id_):
@@ -49,7 +57,6 @@ def buscar_ou_404(modelo, id_):
 
 
 def somente_admin(funcao):
-    """Cadastro de usuario e cancelamento de nota sao restritos ao administrador."""
     from functools import wraps
 
     @wraps(funcao)
@@ -61,7 +68,6 @@ def somente_admin(funcao):
 
 
 def paginar(consulta, por_pagina=40):
-    """Paginacao simples: devolve os itens da pagina e os dados de navegacao."""
     pagina = max(1, request.args.get("pagina", 1, type=int))
     total = consulta.count()
     itens = consulta.limit(por_pagina).offset((pagina - 1) * por_pagina).all()
@@ -83,7 +89,7 @@ def login():
             login_user(usuario)
             return redirect(request.args.get("next") or url_for("painel"))
 
-        # Mensagem generica: nao revela se o e-mail existe.
+
         flash("E-mail ou senha incorretos.", "erro")
 
     return render_template("login.html")
@@ -100,7 +106,7 @@ def logout():
 @login_required
 def painel():
     hoje = date.today()
-    em_aberto = da_empresa(Titulo).filter_by(status=StatusTitulo.ABERTO)
+    em_aberto = _titulos_validos().filter(Titulo.status == StatusTitulo.ABERTO)
 
     def somar(consulta):
         return consulta.with_entities(
@@ -113,7 +119,7 @@ def painel():
         Titulo.vencimento > hoje, Titulo.vencimento <= hoje + timedelta(days=7)
     )
 
-    pago_mes = da_empresa(Titulo).filter(
+    pago_mes = _titulos_validos().filter(
         Titulo.status == StatusTitulo.PAGO,
         Titulo.data_pagamento >= hoje.replace(day=1),
     )
@@ -155,6 +161,12 @@ def titulos():
     hoje = date.today()
     consulta = da_empresa(Titulo).join(NotaFiscal).join(Fornecedor)
 
+    if filtro != "todos":
+        consulta = consulta.filter(
+            Titulo.status != StatusTitulo.CANCELADO,
+            NotaFiscal.status != StatusNota.CANCELADA,
+        )
+
     if filtro == "abertos":
         consulta = consulta.filter(Titulo.status == StatusTitulo.ABERTO)
     elif filtro == "vencidos":
@@ -184,8 +196,8 @@ def titulos():
 def baixar_titulo(id_):
     titulo = buscar_ou_404(Titulo, id_)
     try:
-        # Converte aqui, na borda: o formulario manda "1.234,56" e o model
-        # trabalha so com Decimal.
+
+
         informado = request.form.get("valor_pago")
         titulo.baixar(
             usuario=current_user,
@@ -302,10 +314,6 @@ def cancelar_nota(id_):
 
 
 def gerar_parcelas(valor_total, quantidade, primeiro_vencimento, intervalo=30):
-    """Divide o valor e joga a diferenca de centavos na ultima parcela.
-
-    R$ 100 em 3x vira 33,33 + 33,33 + 33,34. A soma sempre fecha com o total.
-    """
     quantidade = max(1, quantidade)
     base = (valor_total / quantidade).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
@@ -333,7 +341,6 @@ def importar():
 @app.route("/importar/ler", methods=["POST"])
 @login_required
 def ler_pdfs():
-    """Le os PDFs enviados e devolve os dados encontrados, sem salvar nada."""
     leituras = []
     for enviado in request.files.getlist("arquivos"):
         if not enviado.filename.lower().endswith(".pdf"):
@@ -345,7 +352,6 @@ def ler_pdfs():
 
 
 def _ler_em_memoria(enviado):
-    """Grava em arquivo temporario, le e apaga. Nada persiste em disco."""
     caminho = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
@@ -360,11 +366,6 @@ def _ler_em_memoria(enviado):
 
 
 def _juntar(leituras):
-    """Combina um DANFE e seus boletos numa proposta unica de lancamento.
-
-    A nota manda nos dados do documento. Os boletos completam a linha digitavel
-    de cada parcela, casando por vencimento e valor.
-    """
     danfe = next((l for l in leituras if l.get("tipo") == "danfe"), None)
     boletos = [l for l in leituras if l.get("tipo") == "boleto"]
     avisos = [f"{l['arquivo']}: {l.get('aviso', 'não reconhecido')}"
@@ -391,7 +392,7 @@ def _juntar(leituras):
     if not fornecedor and boletos:
         fornecedor = boletos[0].get("fornecedor") or {}
 
-    # Casa cada boleto com a parcela de mesmo vencimento e valor.
+
     for b in boletos:
         alvo = next(
             (p for p in parcelas
@@ -424,12 +425,6 @@ def _juntar(leituras):
 
 
 def _fornecedor_por_cnpj(cnpj):
-    """Casa pela raiz do CNPJ: matriz e filial sao a mesma empresa.
-
-    O DANFE traz o CNPJ da filial que emitiu; o boleto costuma trazer o da
-    matriz. Comparar os 14 digitos inteiros faria o sistema achar que sao
-    fornecedores diferentes.
-    """
     exato = da_empresa(Fornecedor).filter_by(cnpj=cnpj).first()
     if exato:
         return exato
@@ -530,6 +525,7 @@ def fornecedores():
         Fornecedor.ativo.desc(), Fornecedor.razao_social).all()
     return render_template("fornecedores.html", fornecedores=lista)
 
+
 @app.route("/notas/<int:id_>/editar", methods=["GET", "POST"])
 @login_required
 def editar_nota(id_):
@@ -547,7 +543,7 @@ def editar_nota(id_):
         nota.tipo = request.form.get("tipo")
         nota.descricao = request.form.get("descricao", "").strip() or None
 
-        
+
         if not nota.tem_pagamento:
             nota.valor_total = _decimal(request.form["valor_total"])
             for titulo in nota.titulos:
@@ -685,7 +681,6 @@ PAPEIS = {
 
 
 def _consulta_relatorio():
-    """Monta a consulta a partir dos filtros da tela. Usada na tela e no CSV."""
     consulta = da_empresa(Titulo).join(NotaFiscal).join(Fornecedor)
 
     de = request.args.get("de")
@@ -707,8 +702,18 @@ def _consulta_relatorio():
         consulta = consulta.filter(NotaFiscal.centro_custo == centro)
 
     situacao = request.args.get("situacao")
-    if situacao in (StatusTitulo.ABERTO, StatusTitulo.PAGO, StatusTitulo.CANCELADO):
-        consulta = consulta.filter(Titulo.status == situacao)
+    if situacao == StatusTitulo.CANCELADO:
+        consulta = consulta.filter(
+            db.or_(Titulo.status == StatusTitulo.CANCELADO,
+                   NotaFiscal.status == StatusNota.CANCELADA)
+        )
+    else:
+        consulta = consulta.filter(
+            Titulo.status != StatusTitulo.CANCELADO,
+            NotaFiscal.status != StatusNota.CANCELADA,
+        )
+        if situacao in (StatusTitulo.ABERTO, StatusTitulo.PAGO):
+            consulta = consulta.filter(Titulo.status == situacao)
 
     return consulta.order_by(campo)
 
@@ -722,6 +727,7 @@ def relatorios():
     pago = sum((t.valor_pago for t in linhas if t.valor_pago), Decimal("0.00"))
     aberto = sum((t.valor for t in linhas if t.status == StatusTitulo.ABERTO),
                  Decimal("0.00"))
+
 
     acrescimos = sum((t.acrescimo for t in linhas if t.valor_pago), Decimal("0.00"))
 
@@ -744,8 +750,6 @@ def relatorios():
 @app.route("/relatorios/csv")
 @login_required
 def relatorio_csv():
-    """Exporta com separador ponto e virgula e BOM: e o que o Excel em
-    portugues abre sem pedir configuracao nenhuma."""
     saida = io.StringIO()
     escritor = csv.writer(saida, delimiter=";")
     escritor.writerow([
@@ -780,7 +784,6 @@ def relatorio_csv():
     )
 
 
-
 @app.route("/fornecedores/<int:id_>/editar", methods=["GET", "POST"])
 @login_required
 def editar_fornecedor(id_):
@@ -809,13 +812,99 @@ def editar_fornecedor(id_):
 @app.route("/fornecedores/<int:id_>/alternar", methods=["POST"])
 @login_required
 def alternar_fornecedor(id_):
-    """Fornecedor nao e excluido: as notas dele precisam continuar existindo.
-    Desativar tira ele das listas de selecao sem apagar o historico."""
     fornecedor = buscar_ou_404(Fornecedor, id_)
     fornecedor.ativo = not fornecedor.ativo
     db.session.commit()
     flash(f"Fornecedor {'reativado' if fornecedor.ativo else 'desativado'}.", "ok")
     return redirect(url_for("fornecedores"))
+
+
+@app.context_processor
+def contador_solicitacoes():
+    if not current_user.is_authenticated or current_user.papel != Papel.ADMIN:
+        return {"solicitacoes_pendentes": 0}
+    total = da_empresa(SolicitacaoCancelamento).filter_by(
+        status=StatusSolicitacao.PENDENTE).count()
+    return {"solicitacoes_pendentes": total}
+
+
+@app.route("/notas/<int:id_>/solicitar-cancelamento", methods=["POST"])
+@login_required
+def solicitar_cancelamento(id_):
+    nota = buscar_ou_404(NotaFiscal, id_)
+    motivo = request.form.get("motivo", "").strip()
+
+    if nota.status == StatusNota.CANCELADA:
+        flash("Esta nota já está cancelada.", "erro")
+    elif len(motivo) < 10:
+        flash("Descreva a justificativa com pelo menos 10 caracteres.", "erro")
+    elif nota.solicitacao_pendente:
+        flash("Já existe uma solicitação pendente para esta nota.", "erro")
+    else:
+        db.session.add(SolicitacaoCancelamento(
+            empresa_id=current_user.empresa_id,
+            nota_fiscal_id=nota.id,
+            solicitante_id=current_user.id,
+            motivo=motivo,
+        ))
+        db.session.commit()
+        flash("Solicitação enviada ao administrador.", "ok")
+
+    return redirect(url_for("editar_nota", id_=nota.id))
+
+
+@app.route("/solicitacoes")
+@login_required
+def solicitacoes():
+    consulta = da_empresa(SolicitacaoCancelamento)
+    if current_user.papel != Papel.ADMIN:
+        consulta = consulta.filter_by(solicitante_id=current_user.id)
+
+    filtro = request.args.get("filtro", "pendentes")
+    if filtro == "pendentes":
+        consulta = consulta.filter_by(status=StatusSolicitacao.PENDENTE)
+    elif filtro in (StatusSolicitacao.APROVADA, StatusSolicitacao.RECUSADA):
+        consulta = consulta.filter_by(status=filtro)
+
+    itens, pagina = paginar(consulta.order_by(SolicitacaoCancelamento.criada_em.desc()))
+    return render_template("solicitacoes.html", solicitacoes=itens,
+                           filtro=filtro, filtros=FILTROS_SOLICITACAO, pagina=pagina)
+
+
+@app.route("/solicitacoes/<int:id_>/decidir", methods=["POST"])
+@login_required
+@somente_admin
+def decidir_solicitacao(id_):
+    solicitacao = buscar_ou_404(SolicitacaoCancelamento, id_)
+    resposta = request.form.get("resposta", "").strip()
+    decisao = request.form.get("decisao")
+
+    try:
+        if decisao == "aprovar":
+            solicitacao.aprovar(current_user, resposta or None)
+            db.session.commit()
+            flash(f"Nota {solicitacao.nota.numero} cancelada.", "ok")
+        elif decisao == "recusar":
+            if not resposta:
+                flash("Informe o motivo da recusa.", "erro")
+                return redirect(url_for("solicitacoes"))
+            solicitacao.recusar(current_user, resposta)
+            db.session.commit()
+            flash("Solicitação recusada.", "ok")
+        else:
+            flash("Decisão inválida.", "erro")
+    except ValueError as e:
+        flash(str(e), "erro")
+
+    return redirect(url_for("solicitacoes"))
+
+
+FILTROS_SOLICITACAO = {
+    "pendentes": "Pendentes",
+    "aprovada": "Aprovadas",
+    "recusada": "Recusadas",
+    "todas": "Todas",
+}
 
 
 def _data(valor):

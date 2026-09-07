@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block titulo %}Solicitações{% endblock %}
+
+{% block conteudo %}
+<h1>Solicitações de cancelamento</h1>
+<p class="legenda">
+  {% if current_user.papel == 'admin' %}
+    Pedidos feitos pela equipe. Aprovar cancela a nota e os títulos em aberto.
+  {% else %}
+    Pedidos que você enviou ao administrador.
+  {% endif %}
+</p>
+
+<div class="filtros">
+  {% for chave, rotulo in filtros.items() %}
+    <a href="{{ url_for('solicitacoes', filtro=chave) }}" class="{{ 'ativo' if filtro == chave }}">{{ rotulo }}</a>
+  {% endfor %}
+</div>
+
+{% if solicitacoes %}
+<div class="quadro">
+<table>
+  <tr>
+    <th>Solicitado em</th><th>Nota</th><th>Fornecedor</th>
+    <th class="valor">Valor</th><th>Solicitante</th><th>Justificativa</th>
+    <th>Situação</th>{% if current_user.papel == 'admin' %}<th></th>{% endif %}
+  </tr>
+  {% for s in solicitacoes %}
+  <tr>
+    <td>{{ s.criada_em.strftime('%d/%m/%Y') }}</td>
+    <td><a href="{{ url_for('editar_nota', id_=s.nota.id) }}">{{ s.nota.numero }}</a></td>
+    <td>{{ s.nota.fornecedor.razao_social }}</td>
+    <td class="valor">{{ s.nota.valor_total|moeda }}</td>
+    <td>{{ s.solicitante.nome }}</td>
+    <td>{{ s.motivo }}</td>
+    <td>
+      {% if s.status == 'pendente' %}
+        <span class="marca-situacao m-hoje">Aguardando</span>
+      {% elif s.status == 'aprovada' %}
+        <span class="marca-situacao m-pago">Aprovada</span>
+      {% else %}
+        <span class="marca-situacao m-vencido">Recusada</span>
+      {% endif %}
+      {% if s.resposta %}<br><small class="legenda">{{ s.resposta }}</small>{% endif %}
+    </td>
+    {% if current_user.papel == 'admin' %}
+    <td class="acao">
+      {% if s.pendente %}
+      <form method="post" action="{{ url_for('decidir_solicitacao', id_=s.id) }}" class="em-linha">
+        <input name="resposta" placeholder="Resposta (obrigatória se recusar)">
+        <button type="submit" name="decisao" value="aprovar" class="mini">Aprovar</button>
+        <button type="submit" name="decisao" value="recusar" class="discreto mini">Recusar</button>
+      </form>
+      {% else %}
+        <small class="legenda">{{ s.decidida_por.nome if s.decidida_por }}</small>
+      {% endif %}
+    </td>
+    {% endif %}
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% include "_paginacao.html" %}
+{% else %}
+<p class="vazio">Nenhuma solicitação neste filtro.</p>
+{% endif %}
+{% endblock %}

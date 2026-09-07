@@ -94,16 +94,41 @@ estorne o pagamento antes, se precisar corrigir.</p>
   </div>
 </form>
 
-{% if current_user.papel == 'admin' and nota.status != 'cancelada' %}
+{% if nota.status != 'cancelada' %}
+  {% if current_user.papel == 'admin' %}
 <h2>Cancelar nota</h2>
 <form method="post" action="{{ url_for('cancelar_nota', id_=nota.id) }}" class="cartao">
-  <p class="legenda">A nota não é apagada. Ela fica registrada como cancelada, junto
-  com o motivo, e os títulos em aberto são cancelados também.</p>
+  <p class="legenda">A nota não é apagada. Fica registrada como cancelada, junto com o
+  motivo e o responsável, e os títulos em aberto são cancelados também.</p>
   <div class="campo">
     <label for="motivo">Motivo</label>
     <input id="motivo" name="motivo" required>
   </div>
   <div class="acoes"><button type="submit">Cancelar esta nota</button></div>
 </form>
+
+  {% elif nota.solicitacao_pendente %}
+<h2>Cancelamento solicitado</h2>
+<div class="cartao">
+  <p>Há uma solicitação aguardando resposta do administrador, enviada em
+     {{ nota.solicitacao_pendente.criada_em.strftime('%d/%m/%Y') }}
+     por {{ nota.solicitacao_pendente.solicitante.nome }}.</p>
+  <p class="legenda">Justificativa: {{ nota.solicitacao_pendente.motivo }}</p>
+</div>
+
+  {% else %}
+<h2>Solicitar cancelamento</h2>
+<form method="post" action="{{ url_for('solicitar_cancelamento', id_=nota.id) }}" class="cartao">
+  <p class="legenda">Somente o administrador cancela notas. Descreva o motivo e o
+  pedido será enviado para aprovação.</p>
+  <div class="campo">
+    <label for="motivo">Justificativa</label>
+    <textarea id="motivo" name="motivo" rows="3" required minlength="10"
+              placeholder="Ex.: nota lançada em duplicidade, o fornecedor reemitiu com outro número"></textarea>
+  </div>
+  <div class="acoes"><button type="submit">Enviar solicitação</button></div>
+</form>
+  {% endif %}
 {% endif %}
+
 {% endblock %}
