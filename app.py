@@ -341,14 +341,16 @@ def importar():
 @app.route("/importar/ler", methods=["POST"])
 @login_required
 def ler_pdfs():
+    esperado = request.args.get("tipo", "danfe")
     leituras = []
+
     for enviado in request.files.getlist("arquivos"):
         if not enviado.filename.lower().endswith(".pdf"):
             leituras.append({"tipo": "invalido", "arquivo": enviado.filename})
             continue
         leituras.append({"arquivo": enviado.filename, **_ler_em_memoria(enviado)})
 
-    return jsonify(_juntar(leituras))
+    return jsonify(_organizar(leituras, esperado))
 
 
 def _ler_em_memoria(enviado):
@@ -365,63 +367,71 @@ def _ler_em_memoria(enviado):
             os.remove(caminho)
 
 
-def _juntar(leituras):
-    danfe = next((l for l in leituras if l.get("tipo") == "danfe"), None)
-    boletos = [l for l in leituras if l.get("tipo") == "boleto"]
-    avisos = [f"{l['arquivo']}: {l.get('aviso', 'não reconhecido')}"
-              for l in leituras if l.get("tipo") in ("sem_texto", "erro", "desconhecido", "invalido")]
+ROTULOS = {"danfe": "nota fiscal", "boleto": "boleto"}
+ARTIGOS = {"danfe": "uma nota fiscal", "boleto": "um boleto"}
 
+
+def _organizar(leituras, esperado):
+    avisos = []
     nota, parcelas, fornecedor = {}, [], {}
 
-    if danfe:
-        fornecedor = danfe.get("fornecedor") or {}
-        nota = {
-            "numero": danfe.get("numero"),
-            "serie": danfe.get("serie"),
-            "chave_acesso": danfe.get("chave_acesso"),
-            "data_emissao": _iso(danfe.get("data_emissao")),
-            "valor_total": _texto_decimal(danfe.get("valor_total")),
-        }
-        parcelas = [
-            {"vencimento": _iso(d["vencimento"]), "valor": _texto_decimal(d["valor"])}
-            for d in danfe.get("duplicatas", [])
-        ]
-        if not parcelas and not boletos:
-            avisos.append("a nota não traz parcelas — informe os vencimentos à mão")
+    for leitura in leituras:
+        arquivo = leitura.get("arquivo", "arquivo")
+        tipo = leitura.get("tipo")
 
-    if not fornecedor and boletos:
-        fornecedor = boletos[0].get("fornecedor") or {}
+        if tipo in ("sem_texto", "erro", "desconhecido", "invalido"):
+            avisos.append(f"{arquivo}: {leitura.get('aviso', 'não reconhecido')}")
+            continue
 
+        if tipo != esperado:
+            avisos.append(
+                f"{arquivo} parece ser {ARTIGOS.get(tipo, tipo)} e foi solto na área "
+                f"de {ROTULOS.get(esperado, esperado)}. Use a outra área.")
+            continue
 
-    for b in boletos:
-        alvo = next(
-            (p for p in parcelas
-             if p["vencimento"] == _iso(b.get("vencimento"))
-             and p["valor"] == _texto_decimal(b.get("valor"))),
-            None,
-        )
-        if alvo:
-            alvo["linha_digitavel"] = b["linha_digitavel"]
+        if not fornecedor:
+            fornecedor = leitura.get("fornecedor") or {}
+
+        if tipo == "danfe":
+            nota = {
+                "numero": leitura.get("numero"),
+                "serie": leitura.get("serie"),
+                "chave_acesso": leitura.get("chave_acesso"),
+                "data_emissao": _iso(leitura.get("data_emissao")),
+                "valor_total": _texto_decimal(leitura.get("valor_total")),
+            }
+            parcelas = [
+                {"vencimento": _iso(d["vencimento"]),
+                 "valor": _texto_decimal(d["valor"])}
+                for d in leitura.get("duplicatas", [])
+            ]
+            if not parcelas:
+                avisos.append(
+                    f"{arquivo}: a nota não traz as parcelas. Importe os boletos ou "
+                    f"informe os vencimentos à mão.")
+
+            if nota["chave_acesso"] and da_empresa(NotaFiscal).filter_by(
+                    chave_acesso=nota["chave_acesso"]).first():
+                avisos.append("Esta nota já foi lançada antes.")
+
         else:
             parcelas.append({
-                "vencimento": _iso(b.get("vencimento")),
-                "valor": _texto_decimal(b.get("valor")),
-                "linha_digitavel": b["linha_digitavel"],
+                "vencimento": _iso(leitura.get("vencimento")),
+                "valor": _texto_decimal(leitura.get("valor")),
+                "linha_digitavel": leitura.get("linha_digitavel"),
             })
-
-    parcelas.sort(key=lambda p: p["vencimento"] or "")
 
     if fornecedor.get("cnpj"):
         existente = _fornecedor_por_cnpj(fornecedor["cnpj"])
         fornecedor["id"] = existente.id if existente else None
         if not existente:
-            avisos.append(f"fornecedor {fornecedor.get('razao_social', '')} ainda não cadastrado")
+            avisos.append(
+                f"Fornecedor {fornecedor.get('razao_social', '')} ainda não cadastrado. "
+                f"Os dados foram preenchidos abaixo.")
 
-    if nota.get("chave_acesso"):
-        if da_empresa(NotaFiscal).filter_by(chave_acesso=nota["chave_acesso"]).first():
-            avisos.append("esta nota já foi lançada antes")
-
-    return {"nota": nota, "parcelas": parcelas, "fornecedor": fornecedor, "avisos": avisos}
+    parcelas.sort(key=lambda p: p["vencimento"] or "")
+    return {"tipo": esperado, "nota": nota, "parcelas": parcelas,
+            "fornecedor": fornecedor, "avisos": avisos}
 
 
 def _fornecedor_por_cnpj(cnpj):

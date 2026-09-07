@@ -387,6 +387,19 @@ button.perigo:hover { background: var(--vencido-clara); border-color: #e8c4c0; }
 .aviso.ok { background: var(--pago-clara); border-color: #bcdccd; color: var(--pago); }
 .aviso.erro { background: var(--vencido-clara); border-color: #e8c4c0; color: var(--vencido); }
 
+.areas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.areas .solta { margin-bottom: 0; padding: 26px 20px; }
+.titulo-area { font-weight: 650; color: var(--marca); margin: 0 0 10px; font-size: 14px; }
+.solta .legenda { margin: 4px 0 14px; font-size: 13.5px; }
+
+@media (max-width: 700px) { .areas { grid-template-columns: 1fr; } }
+
 .solta {
   border: 2px dashed var(--linha);
   border-radius: var(--raio);

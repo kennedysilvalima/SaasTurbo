@@ -5,10 +5,22 @@
 <h1>Importar nota e boletos</h1>
 <p class="legenda">Arraste os PDFs recebidos do fornecedor. Os arquivos são lidos e descartados — só os dados ficam guardados.</p>
 
-<div id="area" class="solta">
-  <p><strong>Arraste os PDFs aqui</strong></p>
-  <p class="legenda">ou <button type="button" id="escolher" class="discreto">escolher arquivos</button></p>
-  <input type="file" id="arquivos" accept="application/pdf" multiple hidden>
+<div class="areas">
+  <div class="solta" data-tipo="danfe">
+    <p class="titulo-area">Nota fiscal</p>
+    <p><strong>Arraste o DANFE aqui</strong></p>
+    <p class="legenda">Traz fornecedor, número, valor e as parcelas.</p>
+    <button type="button" class="discreto escolher">Escolher arquivo</button>
+    <input type="file" accept="application/pdf" hidden>
+  </div>
+
+  <div class="solta" data-tipo="boleto">
+    <p class="titulo-area">Boletos</p>
+    <p><strong>Arraste os boletos aqui</strong></p>
+    <p class="legenda">Completa vencimento, valor e linha digitável.</p>
+    <button type="button" class="discreto escolher">Escolher arquivos</button>
+    <input type="file" accept="application/pdf" multiple hidden>
+  </div>
 </div>
 
 <p id="situacao" class="legenda" hidden></p>
@@ -91,22 +103,26 @@
 </form>
 
 <script>
-const area = document.getElementById('area');
-const entrada = document.getElementById('arquivos');
 const formulario = document.getElementById('formulario');
 const situacao = document.getElementById('situacao');
 const tabela = document.getElementById('parcelas');
+const URL_LEITURA = '{{ url_for("ler_pdfs") }}';
 
-document.getElementById('escolher').onclick = () => entrada.click();
-entrada.onchange = () => enviar(entrada.files);
+document.querySelectorAll('.solta').forEach(area => {
+  const entrada = area.querySelector('input[type=file]');
+  const tipo = area.dataset.tipo;
 
-['dragenter', 'dragover'].forEach(evento =>
-  area.addEventListener(evento, e => { e.preventDefault(); area.classList.add('ativa'); }));
-['dragleave', 'drop'].forEach(evento =>
-  area.addEventListener(evento, e => { e.preventDefault(); area.classList.remove('ativa'); }));
-area.addEventListener('drop', e => enviar(e.dataTransfer.files));
+  area.querySelector('.escolher').onclick = () => entrada.click();
+  entrada.onchange = () => { enviar(entrada.files, tipo); entrada.value = ''; };
 
-async function enviar(arquivos) {
+  ['dragenter', 'dragover'].forEach(e =>
+    area.addEventListener(e, ev => { ev.preventDefault(); area.classList.add('ativa'); }));
+  ['dragleave', 'drop'].forEach(e =>
+    area.addEventListener(e, ev => { ev.preventDefault(); area.classList.remove('ativa'); }));
+  area.addEventListener('drop', ev => enviar(ev.dataTransfer.files, tipo));
+});
+
+async function enviar(arquivos, tipo) {
   if (!arquivos.length) return;
   const dados = new FormData();
   for (const arquivo of arquivos) dados.append('arquivos', arquivo);
@@ -115,16 +131,16 @@ async function enviar(arquivos) {
   situacao.textContent = `Lendo ${arquivos.length} arquivo(s)…`;
 
   try {
-    const resposta = await fetch('{{ url_for("ler_pdfs") }}', { method: 'POST', body: dados });
+    const resposta = await fetch(`${URL_LEITURA}?tipo=${tipo}`, { method: 'POST', body: dados });
     if (!resposta.ok) throw new Error(resposta.status);
-    preencher(await resposta.json());
+    aplicar(await resposta.json());
     situacao.textContent = 'Leitura concluída. Confira os campos antes de lançar.';
   } catch (erro) {
     situacao.textContent = 'Não foi possível ler os arquivos. Lance a nota manualmente.';
   }
 }
 
-function preencher(dados) {
+function aplicar(dados) {
   const nota = dados.nota || {};
   for (const campo of ['numero', 'serie', 'chave_acesso', 'data_emissao', 'valor_total']) {
     if (nota[campo]) document.getElementById(campo).value = nota[campo];
@@ -134,39 +150,72 @@ function preencher(dados) {
   const seletor = document.getElementById('fornecedor_id');
   if (forn.id) {
     seletor.value = forn.id;
-  } else {
+  } else if (forn.razao_social) {
     seletor.value = '';
-    document.getElementById('nova_razao_social').value = forn.razao_social || '';
+    document.getElementById('nova_razao_social').value = forn.razao_social;
     document.getElementById('novo_cnpj').value = forn.cnpj || '';
   }
   alternarNovoFornecedor();
 
-  tabela.querySelectorAll('tr:not(:first-child)').forEach(l => l.remove());
-  (dados.parcelas || []).forEach(p => adicionarLinha(p));
-  if (!(dados.parcelas || []).length) adicionarLinha({});
+  if (dados.tipo === 'danfe') {
+    limparParcelas();
+    (dados.parcelas || []).forEach(adicionarLinha);
+  } else {
+    (dados.parcelas || []).forEach(casarBoleto);
+  }
+  if (!tabela.querySelector('[name=parcela_vencimento]')) adicionarLinha({});
 
-  const caixa = document.getElementById('avisos');
-  caixa.innerHTML = '';
-  (dados.avisos || []).forEach(texto => {
-    const p = document.createElement('p');
-    p.className = 'aviso erro';
-    p.textContent = texto;
-    caixa.appendChild(p);
-  });
-
+  mostrarAvisos(dados.avisos || []);
   formulario.hidden = false;
   conferir();
 }
 
+function casarBoleto(boleto) {
+  const linhas = [...tabela.querySelectorAll('tr')].slice(1);
+
+  const igual = linhas.find(l =>
+    l.querySelector('[name=parcela_vencimento]').value === boleto.vencimento &&
+    !l.querySelector('[name=parcela_linha]').value);
+
+  const vazia = linhas.find(l =>
+    !l.querySelector('[name=parcela_vencimento]').value &&
+    !l.querySelector('[name=parcela_valor]').value);
+
+  const alvo = igual || vazia;
+  if (alvo) {
+    alvo.querySelector('[name=parcela_vencimento]').value = boleto.vencimento || '';
+    alvo.querySelector('[name=parcela_valor]').value = boleto.valor || '';
+    alvo.querySelector('[name=parcela_linha]').value = boleto.linha_digitavel || '';
+  } else {
+    adicionarLinha(boleto);
+  }
+}
+
+function limparParcelas() {
+  tabela.querySelectorAll('tr:not(:first-child)').forEach(l => l.remove());
+}
+
 function adicionarLinha(p) {
+  p = p || {};
   const linha = tabela.insertRow(-1);
   linha.innerHTML = `
     <td><input type="date" name="parcela_vencimento" value="${p.vencimento || ''}"></td>
     <td class="valor"><input inputmode="decimal" name="parcela_valor" value="${p.valor || ''}"></td>
     <td><input name="parcela_linha" value="${p.linha_digitavel || ''}" placeholder="opcional"></td>
-    <td><button type="button" class="discreto remover">Remover</button></td>`;
+    <td><button type="button" class="discreto mini remover">Remover</button></td>`;
   linha.querySelector('.remover').onclick = () => { linha.remove(); conferir(); };
   linha.querySelectorAll('input').forEach(i => i.addEventListener('input', conferir));
+}
+
+function mostrarAvisos(avisos) {
+  const caixa = document.getElementById('avisos');
+  caixa.innerHTML = '';
+  avisos.forEach(texto => {
+    const p = document.createElement('p');
+    p.className = 'aviso erro';
+    p.textContent = texto;
+    caixa.appendChild(p);
+  });
 }
 
 document.getElementById('adicionar').onclick = () => { adicionarLinha({}); conferir(); };
