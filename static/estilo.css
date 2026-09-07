@@ -371,6 +371,9 @@ button.discreto:hover { background: var(--marca-clara); border-color: #bcd6db; }
 
 button.mini { padding: 5px 12px; font-size: 13.5px; }
 
+button.perigo { color: var(--vencido); }
+button.perigo:hover { background: var(--vencido-clara); border-color: #e8c4c0; }
+
 .acoes { margin-top: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .acoes a { text-decoration: none; }
 

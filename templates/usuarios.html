@@ -33,6 +33,9 @@
 </form>
 
 <h2>Com acesso</h2>
+<p class="legenda">Só é possível excluir quem ainda não tem histórico. Quem já lançou
+notas ou registrou pagamentos deve ser bloqueado — apagar deixaria esses registros
+sem responsável.</p>
 <div class="quadro">
 <table>
   <tr><th>Nome</th><th>E-mail</th><th>Permissão</th><th>Situação</th><th>Nova senha</th><th></th></tr>
@@ -51,11 +54,17 @@
         <button type="submit" class="discreto mini">Alterar</button>
       </form>
     </td>
-    <td>
+    <td class="acao em-linha">
       {% if u.id != current_user.id %}
       <form method="post" action="{{ url_for('alternar_usuario', id_=u.id) }}">
         <button type="submit" class="discreto mini">{{ 'Bloquear' if u.ativo else 'Liberar' }}</button>
       </form>
+      {% if not historicos.get(u.id) %}
+      <form method="post" action="{{ url_for('excluir_usuario', id_=u.id) }}"
+            onsubmit="return confirm('Excluir o cadastro de {{ u.nome }}? Esta ação não pode ser desfeita.')">
+        <button type="submit" class="discreto mini perigo">Excluir</button>
+      </form>
+      {% endif %}
       {% endif %}
     </td>
   </tr>
