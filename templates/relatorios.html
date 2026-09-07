@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block titulo %}Relatórios{% endblock %}
+
+{% block conteudo %}
+<h1>Relatórios</h1>
+<p class="legenda">Filtre o período e exporte para conferir na planilha.</p>
+
+<form method="get" class="cartao">
+  <div class="grade">
+    <div class="campo">
+      <label for="base">Considerar a data de</label>
+      <select id="base" name="base">
+        <option value="vencimento" {{ 'selected' if request.args.get('base') != 'pagamento' }}>Vencimento</option>
+        <option value="pagamento" {{ 'selected' if request.args.get('base') == 'pagamento' }}>Pagamento</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label for="de">De</label>
+      <input id="de" name="de" type="date" value="{{ request.args.get('de', '') }}">
+    </div>
+    <div class="campo">
+      <label for="ate">Até</label>
+      <input id="ate" name="ate" type="date" value="{{ request.args.get('ate', '') }}">
+    </div>
+    <div class="campo">
+      <label for="fornecedor_id">Fornecedor</label>
+      <select id="fornecedor_id" name="fornecedor_id">
+        <option value="">Todos</option>
+        {% for f in fornecedores %}
+          <option value="{{ f.id }}" {{ 'selected' if request.args.get('fornecedor_id')|string == f.id|string }}>{{ f.razao_social }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="centro">Centro de custo</label>
+      <select id="centro" name="centro">
+        <option value="">Todos</option>
+        {% for c in centros %}
+          <option value="{{ c.nome }}" {{ 'selected' if request.args.get('centro') == c.nome }}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="situacao">Situação</label>
+      <select id="situacao" name="situacao">
+        <option value="">Todas</option>
+        <option value="aberto" {{ 'selected' if request.args.get('situacao') == 'aberto' }}>Em aberto</option>
+        <option value="pago" {{ 'selected' if request.args.get('situacao') == 'pago' }}>Pagas</option>
+        <option value="cancelado" {{ 'selected' if request.args.get('situacao') == 'cancelado' }}>Canceladas</option>
+      </select>
+    </div>
+  </div>
+  <div class="acoes">
+    <button type="submit">Aplicar filtros</button>
+    <a href="{{ url_for('relatorio_csv', **request.args) }}"><button type="button" class="discreto">Baixar para Excel</button></a>
+  </div>
+</form>
+
+<dl class="resumo">
+  <div><dt>Total no período</dt><dd>{{ total|moeda }}</dd><small>{{ linhas|length }} título(s)</small></div>
+  <div class="quitado"><dt>Já pago</dt><dd>{{ pago|moeda }}</dd></div>
+  <div class="alerta"><dt>Ainda em aberto</dt><dd>{{ aberto|moeda }}</dd></div>
+  <div><dt>Juros, multa e desconto</dt><dd>{{ acrescimos|moeda }}</dd><small>diferença entre o previsto e o pago</small></div>
+</dl>
+
+{% if por_fornecedor %}
+<h2>Por fornecedor</h2>
+<table>
+  <tr><th>Fornecedor</th><th class="valor">Total</th></tr>
+  {% for nome, valor in por_fornecedor %}
+  <tr><td>{{ nome }}</td><td class="valor">{{ valor|moeda }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Detalhamento</h2>
+{% if linhas %}
+<table>
+  <tr>
+    <th>Vencimento</th><th>Fornecedor</th><th>Nota</th><th>Centro de custo</th>
+    <th class="valor">Valor</th><th>Pagamento</th><th class="valor">Pago</th>
+  </tr>
+  {% for t in linhas %}
+  <tr>
+    <td>{{ t.vencimento|data_br }}</td>
+    <td>{{ t.nota.fornecedor.razao_social }}</td>
+    <td>{{ t.nota.numero }} — {{ t.numero_parcela }}/{{ t.total_parcelas }}</td>
+    <td>{{ t.nota.centro_custo or '—' }}</td>
+    <td class="valor">{{ t.valor|moeda }}</td>
+    <td>{{ t.data_pagamento|data_br }}</td>
+    <td class="valor">{{ t.valor_pago|moeda if t.valor_pago else '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="vazio">Nenhum título encontrado com esses filtros.</p>
+{% endif %}
+{% endblock %}

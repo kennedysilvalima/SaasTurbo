@@ -1,0 +1,12 @@
+{% if pagina.ultima > 1 %}
+<p class="paginacao">
+  {% set base = dict(request.args) %}
+  {% if pagina.atual > 1 %}
+    <a href="{{ url_for(request.endpoint, **dict(base, pagina=pagina.atual - 1)) }}">Anterior</a>
+  {% endif %}
+  <span>Página {{ pagina.atual }} de {{ pagina.ultima }} — {{ pagina.total }} registros</span>
+  {% if pagina.atual < pagina.ultima %}
+    <a href="{{ url_for(request.endpoint, **dict(base, pagina=pagina.atual + 1)) }}">Próxima</a>
+  {% endif %}
+</p>
+{% endif %}

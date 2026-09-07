@@ -34,13 +34,23 @@
 <h2>Cadastrados</h2>
 {% if fornecedores %}
 <table>
-  <tr><th>Razão social</th><th>CNPJ</th><th>Contato</th><th>Telefone</th></tr>
+  <tr><th>Razão social</th><th>CNPJ</th><th>Contato</th><th>Telefone</th><th>Situação</th><th></th></tr>
   {% for f in fornecedores %}
   <tr>
     <td>{{ f.razao_social }}</td>
     <td class="valor" style="text-align:left">{{ f.cnpj }}</td>
     <td>{{ f.contato or '—' }}</td>
     <td>{{ f.telefone or '—' }}</td>
+    <td>
+      {% if f.ativo %}<span class="marca-situacao m-pago">Ativo</span>
+      {% else %}<span class="marca-situacao m-cancelado">Desativado</span>{% endif %}
+    </td>
+    <td class="em-linha">
+      <a href="{{ url_for('editar_fornecedor', id_=f.id) }}">Editar</a>
+      <form method="post" action="{{ url_for('alternar_fornecedor', id_=f.id) }}">
+        <button type="submit" class="discreto">{{ 'Desativar' if f.ativo else 'Reativar' }}</button>
+      </form>
+    </td>
   </tr>
   {% endfor %}
 </table>

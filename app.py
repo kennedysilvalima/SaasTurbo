@@ -5,20 +5,22 @@ Regra que vale para o arquivo inteiro: toda consulta a dado de cliente passa
 por da_empresa(). Nunca escreva Model.query.all() aqui.
 """
 
+import csv
+import io
 import os
 import tempfile
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
-from flask import (Flask, abort, flash, jsonify, redirect, render_template,
-                   request, url_for)
+from flask import (Flask, Response, abort, flash, jsonify, redirect,
+                   render_template, request, url_for)
 from flask_login import (LoginManager, current_user, login_required,
                          login_user, logout_user)
 from sqlalchemy import func
 
 import extratores
-from models import (Empresa, Fornecedor, NotaFiscal, Papel, StatusNota,
-                    StatusTitulo, Titulo, Usuario, db)
+from models import (CentroCusto, Empresa, Fornecedor, NotaFiscal, Papel,
+                    StatusNota, StatusTitulo, Titulo, Usuario, db)
 
 BASE = os.path.abspath(os.path.dirname(__file__))
 
@@ -56,6 +58,27 @@ def buscar_ou_404(modelo, id_):
     if obj is None:
         abort(404)
     return obj
+
+
+def somente_admin(funcao):
+    """Cadastro de usuario e cancelamento de nota sao restritos ao administrador."""
+    from functools import wraps
+
+    @wraps(funcao)
+    def interna(*args, **kwargs):
+        if current_user.papel != Papel.ADMIN:
+            abort(403)
+        return funcao(*args, **kwargs)
+    return interna
+
+
+def paginar(consulta, por_pagina=40):
+    """Paginacao simples: devolve os itens da pagina e os dados de navegacao."""
+    pagina = max(1, request.args.get("pagina", 1, type=int))
+    total = consulta.count()
+    itens = consulta.limit(por_pagina).offset((pagina - 1) * por_pagina).all()
+    ultima = max(1, -(-total // por_pagina))
+    return itens, {"atual": pagina, "ultima": ultima, "total": total}
 
 
 # ---------------------------------------------------------------------------
@@ -152,11 +175,12 @@ FILTROS = {
 @login_required
 def titulos():
     filtro = request.args.get("filtro", "abertos")
+    busca = request.args.get("busca", "").strip()
     hoje = date.today()
-    consulta = da_empresa(Titulo)
+    consulta = da_empresa(Titulo).join(NotaFiscal).join(Fornecedor)
 
     if filtro == "abertos":
-        consulta = consulta.filter_by(status=StatusTitulo.ABERTO)
+        consulta = consulta.filter(Titulo.status == StatusTitulo.ABERTO)
     elif filtro == "vencidos":
         consulta = consulta.filter(Titulo.status == StatusTitulo.ABERTO,
                                    Titulo.vencimento < hoje)
@@ -164,16 +188,19 @@ def titulos():
         consulta = consulta.filter(Titulo.status == StatusTitulo.ABERTO,
                                    Titulo.vencimento <= hoje + timedelta(days=7))
     elif filtro == "pagos":
-        consulta = consulta.filter_by(status=StatusTitulo.PAGO)
+        consulta = consulta.filter(Titulo.status == StatusTitulo.PAGO)
+
+    if busca:
+        alvo = f"%{busca}%"
+        consulta = consulta.filter(
+            db.or_(Fornecedor.razao_social.ilike(alvo), NotaFiscal.numero.ilike(alvo))
+        )
 
     ordem = Titulo.data_pagamento.desc() if filtro == "pagos" else Titulo.vencimento
-    return render_template(
-        "titulos.html",
-        titulos=consulta.order_by(ordem).all(),
-        filtro=filtro,
-        filtros=FILTROS,
-        hoje=hoje,
-    )
+    itens, pagina = paginar(consulta.order_by(ordem))
+
+    return render_template("titulos.html", titulos=itens, filtro=filtro,
+                           filtros=FILTROS, hoje=hoje, busca=busca, pagina=pagina)
 
 
 @app.route("/titulos/<int:id_>/baixar", methods=["POST"])
@@ -223,8 +250,17 @@ def estornar_titulo(id_):
 @app.route("/notas")
 @login_required
 def notas():
-    lista = da_empresa(NotaFiscal).order_by(NotaFiscal.data_emissao.desc()).all()
-    return render_template("notas.html", notas=lista)
+    busca = request.args.get("busca", "").strip()
+    consulta = da_empresa(NotaFiscal).join(Fornecedor)
+    if busca:
+        alvo = f"%{busca}%"
+        consulta = consulta.filter(
+            db.or_(Fornecedor.razao_social.ilike(alvo),
+                   NotaFiscal.numero.ilike(alvo),
+                   NotaFiscal.chave_acesso.ilike(alvo))
+        )
+    itens, pagina = paginar(consulta.order_by(NotaFiscal.data_emissao.desc()))
+    return render_template("notas.html", notas=itens, busca=busca, pagina=pagina)
 
 
 @app.route("/notas/nova", methods=["GET", "POST"])
@@ -238,7 +274,7 @@ def nova_nota():
         if chave and da_empresa(NotaFiscal).filter_by(chave_acesso=chave).first():
             flash("Esta nota já foi lançada.", "erro")
             return render_template("nota_form.html", fornecedores=fornecedores,
-                                   dados=request.form)
+                                   centros=_centros_ativos(), dados=request.form)
 
         nota = NotaFiscal(
             empresa_id=current_user.empresa_id,
@@ -273,7 +309,8 @@ def nova_nota():
         flash(f"Nota {nota.numero} lançada.", "ok")
         return redirect(url_for("notas"))
 
-    return render_template("nota_form.html", fornecedores=fornecedores, dados={})
+    return render_template("nota_form.html", fornecedores=fornecedores,
+                           centros=_centros_ativos(), dados={})
 
 
 @app.route("/notas/<int:id_>/cancelar", methods=["POST"])
@@ -324,7 +361,8 @@ def gerar_parcelas(valor_total, quantidade, primeiro_vencimento, intervalo=30):
 def importar():
     fornecedores = da_empresa(Fornecedor).filter_by(ativo=True).order_by(
         Fornecedor.razao_social).all()
-    return render_template("importar.html", fornecedores=fornecedores)
+    return render_template("importar.html", fornecedores=fornecedores,
+                           centros=_centros_ativos())
 
 
 @app.route("/importar/ler", methods=["POST"])
@@ -527,8 +565,314 @@ def fornecedores():
             flash("Fornecedor cadastrado.", "ok")
         return redirect(url_for("fornecedores"))
 
-    lista = da_empresa(Fornecedor).order_by(Fornecedor.razao_social).all()
+    lista = da_empresa(Fornecedor).order_by(
+        Fornecedor.ativo.desc(), Fornecedor.razao_social).all()
     return render_template("fornecedores.html", fornecedores=lista)
+
+
+# ---------------------------------------------------------------------------
+# Edicao de nota e de titulo
+# ---------------------------------------------------------------------------
+
+@app.route("/notas/<int:id_>/editar", methods=["GET", "POST"])
+@login_required
+def editar_nota(id_):
+    nota = buscar_ou_404(NotaFiscal, id_)
+
+    if nota.status == StatusNota.CANCELADA:
+        flash("Nota cancelada não pode ser editada.", "erro")
+        return redirect(url_for("notas"))
+
+    if request.method == "POST":
+        nota.numero = request.form["numero"].strip()
+        nota.serie = request.form.get("serie", "").strip() or None
+        nota.data_emissao = _data(request.form["data_emissao"])
+        nota.centro_custo = request.form.get("centro_custo") or None
+        nota.tipo = request.form.get("tipo")
+        nota.descricao = request.form.get("descricao", "").strip() or None
+
+        # Valor e parcelas so mudam enquanto nada foi pago.
+        if not nota.tem_pagamento:
+            nota.valor_total = _decimal(request.form["valor_total"])
+            for titulo in nota.titulos:
+                if titulo.status == StatusTitulo.ABERTO:
+                    venc = request.form.get(f"venc_{titulo.id}")
+                    valor = request.form.get(f"valor_{titulo.id}")
+                    if venc:
+                        titulo.vencimento = _data(venc)
+                    if valor:
+                        titulo.valor = _decimal(valor)
+                    titulo.linha_digitavel = request.form.get(f"linha_{titulo.id}") or None
+
+        db.session.commit()
+        flash("Nota atualizada.", "ok")
+        return redirect(url_for("notas"))
+
+    return render_template("nota_editar.html", nota=nota,
+                           centros=_centros_ativos())
+
+
+@app.route("/titulos/<int:id_>/cancelar", methods=["POST"])
+@login_required
+def cancelar_titulo(id_):
+    titulo = buscar_ou_404(Titulo, id_)
+    if titulo.status != StatusTitulo.ABERTO:
+        flash("Só é possível cancelar título em aberto.", "erro")
+    else:
+        titulo.status = StatusTitulo.CANCELADO
+        titulo.observacao = (request.form.get("motivo") or "cancelado").strip()
+        db.session.commit()
+        flash("Título cancelado.", "ok")
+    return redirect(request.referrer or url_for("titulos"))
+
+
+# ---------------------------------------------------------------------------
+# Centros de custo
+# ---------------------------------------------------------------------------
+
+def _centros_ativos():
+    return da_empresa(CentroCusto).filter_by(ativo=True).order_by(CentroCusto.nome).all()
+
+
+@app.route("/centros", methods=["GET", "POST"])
+@login_required
+def centros():
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        if not nome:
+            flash("Informe o nome do centro de custo.", "erro")
+        elif da_empresa(CentroCusto).filter_by(nome=nome).first():
+            flash("Já existe um centro de custo com esse nome.", "erro")
+        else:
+            db.session.add(CentroCusto(
+                empresa_id=current_user.empresa_id,
+                nome=nome,
+                descricao=request.form.get("descricao", "").strip() or None,
+            ))
+            db.session.commit()
+            flash("Centro de custo cadastrado.", "ok")
+        return redirect(url_for("centros"))
+
+    lista = da_empresa(CentroCusto).order_by(CentroCusto.nome).all()
+    return render_template("centros.html", centros=lista)
+
+
+@app.route("/centros/<int:id_>/alternar", methods=["POST"])
+@login_required
+def alternar_centro(id_):
+    centro = buscar_ou_404(CentroCusto, id_)
+    centro.ativo = not centro.ativo
+    db.session.commit()
+    flash(f"Centro de custo {'reativado' if centro.ativo else 'desativado'}.", "ok")
+    return redirect(url_for("centros"))
+
+
+# ---------------------------------------------------------------------------
+# Usuarios
+# ---------------------------------------------------------------------------
+
+@app.route("/usuarios", methods=["GET", "POST"])
+@login_required
+@somente_admin
+def usuarios():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        senha = request.form.get("senha", "")
+
+        if len(senha) < 8:
+            flash("A senha precisa ter ao menos 8 caracteres.", "erro")
+        elif Usuario.query.filter_by(email=email).first():
+            flash("Já existe usuário com esse e-mail.", "erro")
+        else:
+            novo = Usuario(
+                empresa_id=current_user.empresa_id,
+                nome=request.form.get("nome", "").strip(),
+                email=email,
+                papel=request.form.get("papel", Papel.OPERADOR),
+            )
+            novo.definir_senha(senha)
+            db.session.add(novo)
+            db.session.commit()
+            flash(f"Usuário {novo.nome} cadastrado.", "ok")
+        return redirect(url_for("usuarios"))
+
+    lista = da_empresa(Usuario).order_by(Usuario.nome).all()
+    return render_template("usuarios.html", usuarios=lista, papeis=PAPEIS)
+
+
+@app.route("/usuarios/<int:id_>/alternar", methods=["POST"])
+@login_required
+@somente_admin
+def alternar_usuario(id_):
+    usuario = buscar_ou_404(Usuario, id_)
+    if usuario.id == current_user.id:
+        flash("Você não pode desativar o próprio acesso.", "erro")
+    else:
+        usuario.ativo = not usuario.ativo
+        db.session.commit()
+        flash(f"Acesso de {usuario.nome} {'liberado' if usuario.ativo else 'bloqueado'}.", "ok")
+    return redirect(url_for("usuarios"))
+
+
+@app.route("/usuarios/<int:id_>/senha", methods=["POST"])
+@login_required
+@somente_admin
+def trocar_senha(id_):
+    usuario = buscar_ou_404(Usuario, id_)
+    senha = request.form.get("senha", "")
+    if len(senha) < 8:
+        flash("A senha precisa ter ao menos 8 caracteres.", "erro")
+    else:
+        usuario.definir_senha(senha)
+        db.session.commit()
+        flash(f"Senha de {usuario.nome} alterada.", "ok")
+    return redirect(url_for("usuarios"))
+
+
+PAPEIS = {
+    Papel.ADMIN: "Administrador",
+    Papel.OPERADOR: "Operador",
+    Papel.LEITURA: "Somente leitura",
+}
+
+
+# ---------------------------------------------------------------------------
+# Relatorios
+# ---------------------------------------------------------------------------
+
+def _consulta_relatorio():
+    """Monta a consulta a partir dos filtros da tela. Usada na tela e no CSV."""
+    consulta = da_empresa(Titulo).join(NotaFiscal).join(Fornecedor)
+
+    de = request.args.get("de")
+    ate = request.args.get("ate")
+    base = request.args.get("base", "vencimento")
+    campo = Titulo.data_pagamento if base == "pagamento" else Titulo.vencimento
+
+    if de:
+        consulta = consulta.filter(campo >= _data(de))
+    if ate:
+        consulta = consulta.filter(campo <= _data(ate))
+
+    fornecedor_id = request.args.get("fornecedor_id", type=int)
+    if fornecedor_id:
+        consulta = consulta.filter(NotaFiscal.fornecedor_id == fornecedor_id)
+
+    centro = request.args.get("centro")
+    if centro:
+        consulta = consulta.filter(NotaFiscal.centro_custo == centro)
+
+    situacao = request.args.get("situacao")
+    if situacao in (StatusTitulo.ABERTO, StatusTitulo.PAGO, StatusTitulo.CANCELADO):
+        consulta = consulta.filter(Titulo.status == situacao)
+
+    return consulta.order_by(campo)
+
+
+@app.route("/relatorios")
+@login_required
+def relatorios():
+    linhas = _consulta_relatorio().all()
+
+    total = sum((t.valor for t in linhas), Decimal("0.00"))
+    pago = sum((t.valor_pago for t in linhas if t.valor_pago), Decimal("0.00"))
+    aberto = sum((t.valor for t in linhas if t.status == StatusTitulo.ABERTO),
+                 Decimal("0.00"))
+
+    # Quanto se perdeu (ou economizou) por pagar fora do prazo.
+    acrescimos = sum((t.acrescimo for t in linhas if t.valor_pago), Decimal("0.00"))
+
+    por_fornecedor = {}
+    for t in linhas:
+        nome = t.nota.fornecedor.razao_social
+        por_fornecedor[nome] = por_fornecedor.get(nome, Decimal("0.00")) + t.valor
+
+    return render_template(
+        "relatorios.html",
+        linhas=linhas,
+        total=total, pago=pago, aberto=aberto, acrescimos=acrescimos,
+        por_fornecedor=sorted(por_fornecedor.items(), key=lambda x: -x[1]),
+        fornecedores=da_empresa(Fornecedor).order_by(Fornecedor.razao_social).all(),
+        centros=_centros_ativos(),
+        hoje=date.today(),
+    )
+
+
+@app.route("/relatorios/csv")
+@login_required
+def relatorio_csv():
+    """Exporta com separador ponto e virgula e BOM: e o que o Excel em
+    portugues abre sem pedir configuracao nenhuma."""
+    saida = io.StringIO()
+    escritor = csv.writer(saida, delimiter=";")
+    escritor.writerow([
+        "Vencimento", "Situacao", "Fornecedor", "CNPJ", "Nota", "Parcela",
+        "Centro de custo", "Valor", "Data pagamento", "Valor pago",
+        "Juros", "Multa", "Desconto",
+    ])
+
+    def br(valor):
+        return f"{valor:.2f}".replace(".", ",") if valor is not None else ""
+
+    for t in _consulta_relatorio().all():
+        escritor.writerow([
+            t.vencimento.strftime("%d/%m/%Y"),
+            t.status,
+            t.nota.fornecedor.razao_social,
+            t.nota.fornecedor.cnpj,
+            t.nota.numero,
+            f"{t.numero_parcela}/{t.total_parcelas}",
+            t.nota.centro_custo or "",
+            br(t.valor),
+            t.data_pagamento.strftime("%d/%m/%Y") if t.data_pagamento else "",
+            br(t.valor_pago),
+            br(t.juros), br(t.multa), br(t.desconto),
+        ])
+
+    nome = f"contas-a-pagar-{date.today():%Y-%m-%d}.csv"
+    return Response(
+        "\ufeff" + saida.getvalue(),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={nome}"},
+    )
+
+
+
+@app.route("/fornecedores/<int:id_>/editar", methods=["GET", "POST"])
+@login_required
+def editar_fornecedor(id_):
+    fornecedor = buscar_ou_404(Fornecedor, id_)
+
+    if request.method == "POST":
+        cnpj = _so_digitos(request.form.get("cnpj"))
+        outro = da_empresa(Fornecedor).filter(
+            Fornecedor.cnpj == cnpj, Fornecedor.id != fornecedor.id).first()
+        if outro:
+            flash("Outro fornecedor já usa este CNPJ.", "erro")
+        else:
+            fornecedor.razao_social = request.form["razao_social"].strip()
+            fornecedor.nome_fantasia = request.form.get("nome_fantasia", "").strip() or None
+            fornecedor.cnpj = cnpj
+            fornecedor.contato = request.form.get("contato", "").strip() or None
+            fornecedor.email = request.form.get("email", "").strip() or None
+            fornecedor.telefone = request.form.get("telefone", "").strip() or None
+            db.session.commit()
+            flash("Fornecedor atualizado.", "ok")
+            return redirect(url_for("fornecedores"))
+
+    return render_template("fornecedor_editar.html", fornecedor=fornecedor)
+
+
+@app.route("/fornecedores/<int:id_>/alternar", methods=["POST"])
+@login_required
+def alternar_fornecedor(id_):
+    """Fornecedor nao e excluido: as notas dele precisam continuar existindo.
+    Desativar tira ele das listas de selecao sem apagar o historico."""
+    fornecedor = buscar_ou_404(Fornecedor, id_)
+    fornecedor.ativo = not fornecedor.ativo
+    db.session.commit()
+    flash(f"Fornecedor {'reativado' if fornecedor.ativo else 'desativado'}.", "ok")
+    return redirect(url_for("fornecedores"))
 
 
 # ---------------------------------------------------------------------------

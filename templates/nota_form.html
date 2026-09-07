@@ -53,7 +53,10 @@
 
     <div class="campo">
       <label for="centro_custo">Centro de custo</label>
-      <input id="centro_custo" name="centro_custo" value="{{ dados.get('centro_custo', '') }}">
+      <select id="centro_custo" name="centro_custo">
+        <option value="">— nenhum —</option>
+        {% for c in centros %}<option value="{{ c.nome }}">{{ c.nome }}</option>{% endfor %}
+      </select>
     </div>
   </div>
 

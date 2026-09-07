@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block titulo %}Editar nota{% endblock %}
+
+{% block conteudo %}
+<h1>Editar nota {{ nota.numero }}</h1>
+<p class="legenda">{{ nota.fornecedor.razao_social }}</p>
+
+{% if nota.tem_pagamento %}
+<p class="aviso erro">Esta nota tem parcela paga. Valor e parcelas ficam bloqueados —
+estorne o pagamento antes, se precisar corrigir.</p>
+{% endif %}
+
+<form method="post" class="cartao">
+  <div class="grade">
+    <div class="campo">
+      <label for="numero">Número</label>
+      <input id="numero" name="numero" required value="{{ nota.numero }}">
+    </div>
+    <div class="campo">
+      <label for="serie">Série</label>
+      <input id="serie" name="serie" value="{{ nota.serie or '' }}">
+    </div>
+    <div class="campo">
+      <label for="data_emissao">Emissão</label>
+      <input id="data_emissao" name="data_emissao" type="date" required
+             value="{{ nota.data_emissao.isoformat() }}">
+    </div>
+    <div class="campo">
+      <label for="valor_total">Valor total</label>
+      <input id="valor_total" name="valor_total" inputmode="decimal" required
+             value="{{ '%.2f'|format(nota.valor_total) }}"
+             {{ 'readonly' if nota.tem_pagamento }}>
+    </div>
+    <div class="campo">
+      <label for="centro_custo">Centro de custo</label>
+      <select id="centro_custo" name="centro_custo">
+        <option value="">— nenhum —</option>
+        {% for c in centros %}
+          <option value="{{ c.nome }}" {{ 'selected' if nota.centro_custo == c.nome }}>{{ c.nome }}</option>
+        {% endfor %}
+        {% if nota.centro_custo and nota.centro_custo not in centros|map(attribute='nome')|list %}
+          <option value="{{ nota.centro_custo }}" selected>{{ nota.centro_custo }} (desativado)</option>
+        {% endif %}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="tipo">Tipo</label>
+      <select id="tipo" name="tipo">
+        <option value="produto" {{ 'selected' if nota.tipo == 'produto' }}>Produto</option>
+        <option value="servico" {{ 'selected' if nota.tipo == 'servico' }}>Serviço</option>
+      </select>
+    </div>
+    <div class="campo largo">
+      <label for="descricao">Observação</label>
+      <textarea id="descricao" name="descricao" rows="2">{{ nota.descricao or '' }}</textarea>
+    </div>
+  </div>
+
+  <h2>Parcelas</h2>
+  <table>
+    <tr><th>Nº</th><th>Vencimento</th><th class="valor">Valor</th><th>Linha digitável</th><th>Situação</th></tr>
+    {% for t in nota.titulos %}
+    <tr>
+      <td>{{ t.numero_parcela }}/{{ t.total_parcelas }}</td>
+      <td>
+        {% if t.status == 'aberto' and not nota.tem_pagamento %}
+          <input type="date" name="venc_{{ t.id }}" value="{{ t.vencimento.isoformat() }}">
+        {% else %}{{ t.vencimento|data_br }}{% endif %}
+      </td>
+      <td class="valor">
+        {% if t.status == 'aberto' and not nota.tem_pagamento %}
+          <input inputmode="decimal" name="valor_{{ t.id }}" value="{{ '%.2f'|format(t.valor) }}">
+        {% else %}{{ t.valor|moeda }}{% endif %}
+      </td>
+      <td>
+        {% if t.status == 'aberto' and not nota.tem_pagamento %}
+          <input name="linha_{{ t.id }}" value="{{ t.linha_digitavel or '' }}" placeholder="opcional">
+        {% else %}{{ t.linha_digitavel or '—' }}{% endif %}
+      </td>
+      <td>
+        {% if t.status == 'pago' %}<span class="marca-situacao m-pago">Pago</span>
+        {% elif t.status == 'cancelado' %}<span class="marca-situacao m-cancelado">Cancelado</span>
+        {% else %}<span class="marca-situacao m-aberto">Em aberto</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <div class="acoes">
+    <button type="submit">Salvar alterações</button>
+    <a href="{{ url_for('notas') }}"><button type="button" class="discreto">Voltar</button></a>
+  </div>
+</form>
+
+{% if current_user.papel == 'admin' and nota.status != 'cancelada' %}
+<h2>Cancelar nota</h2>
+<form method="post" action="{{ url_for('cancelar_nota', id_=nota.id) }}" class="cartao">
+  <p class="legenda">A nota não é apagada. Ela fica registrada como cancelada, junto
+  com o motivo, e os títulos em aberto são cancelados também.</p>
+  <div class="campo">
+    <label for="motivo">Motivo</label>
+    <input id="motivo" name="motivo" required>
+  </div>
+  <div class="acoes"><button type="submit">Cancelar esta nota</button></div>
+</form>
+{% endif %}
+{% endblock %}

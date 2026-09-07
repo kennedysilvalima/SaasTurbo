@@ -4,13 +4,22 @@
 {% block conteudo %}
 <h1>Notas fiscais</h1>
 <p class="legenda">Documentos recebidos dos fornecedores.</p>
-<p class="acoes"><a href="{{ url_for('nova_nota') }}"><button type="button">Lançar nota</button></a></p>
+<p class="acoes">
+  <a href="{{ url_for('importar') }}"><button type="button">Importar PDF</button></a>
+  <a href="{{ url_for('nova_nota') }}"><button type="button" class="discreto">Lançar manualmente</button></a>
+</p>
+
+<form method="get" class="busca">
+  <input name="busca" value="{{ busca }}" placeholder="Fornecedor, número da nota ou chave">
+  <button type="submit" class="discreto">Buscar</button>
+  {% if busca %}<a href="{{ url_for('notas') }}">limpar</a>{% endif %}
+</form>
 
 {% if notas %}
 <table>
   <tr>
     <th>Emissão</th><th>Número</th><th>Fornecedor</th>
-    <th class="valor">Valor</th><th>Parcelas</th><th>Situação</th>
+    <th class="valor">Valor</th><th>Parcelas</th><th>Situação</th><th></th>
   </tr>
   {% for n in notas %}
   <tr>
@@ -34,10 +43,12 @@
         <span class="marca-situacao m-aberto">Lançada</span>
       {% endif %}
     </td>
+    <td><a href="{{ url_for('editar_nota', id_=n.id) }}">Abrir</a></td>
   </tr>
   {% endfor %}
 </table>
+{% include "_paginacao.html" %}
 {% else %}
-<p class="vazio">Nenhuma nota lançada. Comece por “Lançar nota”.</p>
+<p class="vazio">Nenhuma nota encontrada.</p>
 {% endif %}
 {% endblock %}

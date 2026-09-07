@@ -13,7 +13,12 @@
   <a href="{{ url_for('titulos') }}" class="{{ 'ativo' if request.endpoint == 'titulos' }}">Títulos</a>
   <a href="{{ url_for('importar') }}" class="{{ 'ativo' if request.endpoint == 'importar' }}">Importar PDF</a>
   <a href="{{ url_for('notas') }}" class="{{ 'ativo' if request.endpoint in ['notas','nova_nota'] }}">Notas fiscais</a>
-  <a href="{{ url_for('fornecedores') }}" class="{{ 'ativo' if request.endpoint == 'fornecedores' }}">Fornecedores</a>
+  <a href="{{ url_for('relatorios') }}" class="{{ 'ativo' if request.endpoint == 'relatorios' }}">Relatórios</a>
+  <a href="{{ url_for('fornecedores') }}" class="{{ 'ativo' if request.endpoint in ['fornecedores','editar_fornecedor'] }}">Fornecedores</a>
+  <a href="{{ url_for('centros') }}" class="{{ 'ativo' if request.endpoint == 'centros' }}">Centros de custo</a>
+  {% if current_user.papel == 'admin' %}
+  <a href="{{ url_for('usuarios') }}" class="{{ 'ativo' if request.endpoint == 'usuarios' }}">Usuários</a>
+  {% endif %}
   <div class="rodape">
     {{ current_user.nome }}<br>
     <a href="{{ url_for('logout') }}">Sair</a>

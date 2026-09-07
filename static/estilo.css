@@ -254,3 +254,18 @@ body.entrada { display: block; background: var(--tinta); }
 
 #parcelas input { width: 100%; }
 #parcelas td { padding: 5px 8px; }
+
+/* ---------- busca e paginacao ---------- */
+
+.busca { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+.busca input { flex: 1; max-width: 380px; }
+.busca a { color: var(--tinta-fraca); font-size: 14px; }
+
+.paginacao { display: flex; gap: 14px; align-items: center; margin-top: 12px; color: var(--tinta-fraca); font-size: 14px; }
+.paginacao a { color: var(--marca); }
+
+.em-linha { display: flex; gap: 8px; align-items: center; }
+.em-linha form { display: inline; }
+.em-linha input { max-width: 140px; }
+
+td a { color: var(--marca); }

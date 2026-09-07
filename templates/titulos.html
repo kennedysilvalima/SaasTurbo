@@ -11,6 +11,13 @@
   {% endfor %}
 </div>
 
+<form method="get" class="busca">
+  <input type="hidden" name="filtro" value="{{ filtro }}">
+  <input name="busca" value="{{ busca }}" placeholder="Fornecedor ou número da nota">
+  <button type="submit" class="discreto">Buscar</button>
+  {% if busca %}<a href="{{ url_for('titulos', filtro=filtro) }}">limpar</a>{% endif %}
+</form>
+
 {% if titulos %}
 <table>
   <tr>
@@ -49,6 +56,7 @@
   </tr>
   {% endfor %}
 </table>
+{% include "_paginacao.html" %}
 {% else %}
 <p class="vazio">Nenhum título neste filtro.</p>
 {% endif %}

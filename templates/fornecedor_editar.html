@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Editar fornecedor{% endblock %}
+
+{% block conteudo %}
+<h1>Editar fornecedor</h1>
+<p class="legenda">As notas já lançadas continuam vinculadas a este cadastro.</p>
+
+<form method="post" class="cartao">
+  <div class="grade">
+    <div class="campo">
+      <label for="razao_social">Razão social</label>
+      <input id="razao_social" name="razao_social" required value="{{ fornecedor.razao_social }}">
+    </div>
+    <div class="campo">
+      <label for="nome_fantasia">Nome fantasia</label>
+      <input id="nome_fantasia" name="nome_fantasia" value="{{ fornecedor.nome_fantasia or '' }}">
+    </div>
+    <div class="campo">
+      <label for="cnpj">CNPJ</label>
+      <input id="cnpj" name="cnpj" inputmode="numeric" required value="{{ fornecedor.cnpj }}">
+    </div>
+    <div class="campo">
+      <label for="contato">Contato</label>
+      <input id="contato" name="contato" value="{{ fornecedor.contato or '' }}">
+    </div>
+    <div class="campo">
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" value="{{ fornecedor.email or '' }}">
+    </div>
+    <div class="campo">
+      <label for="telefone">Telefone</label>
+      <input id="telefone" name="telefone" value="{{ fornecedor.telefone or '' }}">
+    </div>
+  </div>
+  <div class="acoes">
+    <button type="submit">Salvar alterações</button>
+    <a href="{{ url_for('fornecedores') }}"><button type="button" class="discreto">Voltar</button></a>
+  </div>
+</form>
+{% endblock %}

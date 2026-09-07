@@ -1,3 +1,13 @@
+"""
+Modelos de dados - Sistema de Contas a Pagar (NFs e Boletos)
+
+Regras estruturais que valem para o arquivo inteiro:
+  - Toda tabela de dados do cliente tem empresa_id. NUNCA consulte sem filtrar por ele.
+  - Valores monetarios usam Numeric, nunca Float. Float perde centavos em soma.
+  - "Vencido" nao e status gravado, e calculado (veja Titulo.vencido).
+  - Nada e deletado. Documento errado vira status cancelado.
+"""
+
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -109,6 +119,27 @@ class Fornecedor(db.Model):
         return f"<Fornecedor {self.id} {self.razao_social}>"
 
 
+
+class CentroCusto(db.Model):
+    """Obra, setor ou projeto ao qual a despesa e atribuida."""
+
+    __tablename__ = "centro_custo"
+    __table_args__ = (
+        db.UniqueConstraint("empresa_id", "nome", name="uq_centro_nome_empresa"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresa.id"), nullable=False)
+
+    nome = db.Column(db.String(80), nullable=False)
+    descricao = db.Column(db.String(200))
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<CentroCusto {self.id} {self.nome}>"
+
+
 # ---------------------------------------------------------------------------
 # Documentos
 # ---------------------------------------------------------------------------
@@ -191,6 +222,12 @@ class NotaFiscal(db.Model):
             (t.valor_pago for t in self.titulos if t.valor_pago),
             Decimal("0.00"),
         )
+
+
+    @property
+    def tem_pagamento(self):
+        """Nota com parcela ja paga nao pode ter valor ou parcelas alterados."""
+        return any(t.status == StatusTitulo.PAGO for t in self.titulos)
 
     # -- acoes --------------------------------------------------------------
 
