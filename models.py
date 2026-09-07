@@ -1,13 +1,3 @@
-"""
-Modelos de dados - Sistema de Contas a Pagar (NFs e Boletos)
-
-Regras estruturais que valem para o arquivo inteiro:
-  - Toda tabela de dados do cliente tem empresa_id. NUNCA consulte sem filtrar por ele.
-  - Valores monetarios usam Numeric, nunca Float. Float perde centavos em soma.
-  - "Vencido" nao e status gravado, e calculado (veja Titulo.vencido).
-  - Nada e deletado. Documento errado vira status cancelado.
-"""
-
 from datetime import date, datetime
 from decimal import Decimal
 

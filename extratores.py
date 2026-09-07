@@ -1,16 +1,3 @@
-"""
-Extratores de dados de PDF - DANFE e boleto bancario.
-
-Principio: nao depender de layout. Tudo que sai daqui vem de formato definido
-por norma - chave de acesso de 44 digitos, linha digitavel de 47 digitos - ou
-da posicao relativa dentro da tabela do DANFE. Emissor diferente nao quebra.
-
-Nada aqui e salvo direto no banco. O resultado preenche o formulario e o
-usuario confere ao lado do PDF antes de confirmar.
-
-Requer: pip install pdfplumber
-"""
-
 import re
 from datetime import date, timedelta
 from decimal import Decimal

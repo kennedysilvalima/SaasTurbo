@@ -1,12 +1,3 @@
-"""
-Cria as tabelas e a primeira empresa com um usuario administrador.
-
-Rode uma vez, por linha de comando:
-    python criar_banco.py
-
-Nao apaga nada: se a empresa ja existir, apenas avisa.
-"""
-
 import sys
 
 from app import app

@@ -1,10 +1,3 @@
-"""
-Sistema de contas a pagar - NFs e boletos.
-
-Regra que vale para o arquivo inteiro: toda consulta a dado de cliente passa
-por da_empresa(). Nunca escreva Model.query.all() aqui.
-"""
-
 import os
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
