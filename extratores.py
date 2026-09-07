@@ -1,16 +1,3 @@
-"""
-Extratores de dados de PDF - DANFE e boleto bancario.
-
-Principio: nao depender de layout. Tudo que sai daqui vem de formato definido
-por norma - chave de acesso de 44 digitos, linha digitavel de 47 digitos - ou
-da posicao relativa dentro da tabela do DANFE. Emissor diferente nao quebra.
-
-Nada aqui e salvo direto no banco. O resultado preenche o formulario e o
-usuario confere ao lado do PDF antes de confirmar.
-
-Requer: pip install pdfplumber
-"""
-
 import re
 from datetime import date, timedelta
 from decimal import Decimal
@@ -18,18 +5,11 @@ from decimal import Decimal
 import pdfplumber
 
 
-# ---------------------------------------------------------------------------
-# Leitura bruta
-# ---------------------------------------------------------------------------
 
 def ler_texto(caminho):
     with pdfplumber.open(caminho) as pdf:
         return "\n".join((p.extract_text() or "") for p in pdf.pages)
 
-
-# ---------------------------------------------------------------------------
-# Leitura por posicao
-# ---------------------------------------------------------------------------
 
 def campo_abaixo(caminho, rotulo, padrao, alcance=30, largura=140):
     """Acha o rotulo na pagina e devolve o valor na linha imediatamente abaixo.
@@ -59,10 +39,6 @@ def campo_abaixo(caminho, rotulo, padrao, alcance=30, largura=140):
                     return min(candidatos, key=lambda p: (p["top"], p["x0"]))["text"]
     return None
 
-
-# ---------------------------------------------------------------------------
-# Chave de acesso da NF-e
-# ---------------------------------------------------------------------------
 
 def extrair_chave(texto):
     """Acha os 44 digitos, com ou sem os espacos que o DANFE insere."""
@@ -101,10 +77,6 @@ def dados_da_chave(chave):
         "numero": chave[25:34].lstrip("0"),
     }
 
-
-# ---------------------------------------------------------------------------
-# Linha digitavel do boleto
-# ---------------------------------------------------------------------------
 
 BASE_FATOR = date(1997, 10, 7)
 VIRADA_FATOR = date(2025, 2, 22)   # fator 9999 voltou para 1000 nesta data
@@ -148,10 +120,6 @@ def data_do_fator(fator):
     return nova if antiga < VIRADA_FATOR else antiga
 
 
-# ---------------------------------------------------------------------------
-# Campos do DANFE
-# ---------------------------------------------------------------------------
-
 def extrair_duplicatas(texto):
     """O bloco FATURA / DUPLICATAS traz vencimento e valor de cada parcela.
 
@@ -190,10 +158,6 @@ def extrair_emissao(caminho):
     return br_para_data(bruto) if bruto else None
 
 
-# ---------------------------------------------------------------------------
-# Emitente / beneficiario
-# ---------------------------------------------------------------------------
-
 def extrair_emitente(texto):
     """O canhoto do DANFE comeca com "Recebemos de <NOME> CNPJ <numero>".
 
@@ -223,10 +187,6 @@ def so_digitos(valor):
     return "".join(c for c in (valor or "") if c.isdigit())
 
 
-# ---------------------------------------------------------------------------
-# Conversao
-# ---------------------------------------------------------------------------
-
 def br_para_data(s):
     d, m, a = s.split("/")
     return date(int(a), int(m), int(d))
@@ -235,10 +195,6 @@ def br_para_data(s):
 def br_para_decimal(s):
     return Decimal(s.replace(".", "").replace(",", "."))
 
-
-# ---------------------------------------------------------------------------
-# Ponto de entrada
-# ---------------------------------------------------------------------------
 
 def analisar(caminho):
     """Identifica o tipo do PDF e devolve o que conseguiu ler.

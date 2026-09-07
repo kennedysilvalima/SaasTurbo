@@ -3,28 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Entrar</title>
+  <title>Entrar — Contas a pagar</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
 </head>
 <body class="entrada">
-  <div class="caixa">
-    <h1>Contas a pagar</h1>
+
+<div class="painel">
+
+  <section class="apresentacao">
+    <div class="conteudo">
+      <h1>Todo boleto<br>no lugar certo.</h1>
+      <p>Lance notas fiscais e boletos, acompanhe vencimentos e feche o mês
+         sabendo exatamente o que foi pago e o que ainda está em aberto.</p>
+
+      <ul class="recursos">
+        <li>Notas fiscais</li>
+        <li>Boletos e parcelas</li>
+        <li>Importação de PDF</li>
+        <li>Relatórios</li>
+        <li>Centros de custo</li>
+      </ul>
+    </div>
+
+    <p class="restrito">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <path fill="currentColor" d="M8 1 2 3.5v4C2 11 4.6 14 8 15c3.4-1 6-4 6-7.5v-4L8 1Zm0 2.2 4 1.7v2.6c0 2.6-1.7 4.9-4 5.8-2.3-.9-4-3.2-4-5.8V4.9l4-1.7Z"/>
+      </svg>
+      Acesso restrito a usuários autorizados.
+    </p>
+  </section>
+
+  <section class="acesso">
+    <p class="etiqueta"><span class="ponto"></span> Acesso ao sistema</p>
+    <h2>Entrar na plataforma</h2>
+    <p class="apoio">Informe suas credenciais para continuar.</p>
+
     {% with mensagens = get_flashed_messages(with_categories=true) %}
       {% for categoria, texto in mensagens %}
         <p class="aviso {{ categoria }}">{{ texto }}</p>
       {% endfor %}
     {% endwith %}
+
     <form method="post">
       <div class="campo">
         <label for="email">E-mail</label>
-        <input id="email" name="email" type="email" required autofocus autocomplete="username">
+        <input id="email" name="email" type="email" required autofocus
+               autocomplete="username" placeholder="nome@empresa.com.br">
       </div>
+
       <div class="campo">
         <label for="senha">Senha</label>
-        <input id="senha" name="senha" type="password" required autocomplete="current-password">
+        <div class="com-botao">
+          <input id="senha" name="senha" type="password" required
+                 autocomplete="current-password" placeholder="sua senha">
+          <button type="button" id="ver" aria-label="Mostrar senha">
+            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+              <path fill="currentColor" d="M10 4C5.8 4 2.3 6.4 1 10c1.3 3.6 4.8 6 9 6s7.7-2.4 9-6c-1.3-3.6-4.8-6-9-6Zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-6.4a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Z"/>
+            </svg>
+          </button>
+        </div>
       </div>
-      <button type="submit">Entrar</button>
+
+      <button type="submit" class="principal">Entrar no sistema</button>
     </form>
-  </div>
+
+    <p class="rodape-acesso">Seus dados trafegam de forma protegida.</p>
+  </section>
+
+</div>
+
+<script>
+  const senha = document.getElementById('senha');
+  const alternar = document.getElementById('ver');
+  alternar.onclick = () => {
+    const oculta = senha.type === 'password';
+    senha.type = oculta ? 'text' : 'password';
+    alternar.setAttribute('aria-label', oculta ? 'Ocultar senha' : 'Mostrar senha');
+    alternar.classList.toggle('aberto', oculta);
+    senha.focus();
+  };
+</script>
+
 </body>
 </html>

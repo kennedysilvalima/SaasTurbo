@@ -1,13 +1,3 @@
-"""
-Modelos de dados - Sistema de Contas a Pagar (NFs e Boletos)
-
-Regras estruturais que valem para o arquivo inteiro:
-  - Toda tabela de dados do cliente tem empresa_id. NUNCA consulte sem filtrar por ele.
-  - Valores monetarios usam Numeric, nunca Float. Float perde centavos em soma.
-  - "Vencido" nao e status gravado, e calculado (veja Titulo.vencido).
-  - Nada e deletado. Documento errado vira status cancelado.
-"""
-
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -16,11 +6,6 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
-
-
-# ---------------------------------------------------------------------------
-# Constantes de status
-# ---------------------------------------------------------------------------
 
 class StatusNota:
     PENDENTE = "pendente"
@@ -38,10 +23,6 @@ class Papel:
     OPERADOR = "operador"
     LEITURA = "leitura"
 
-
-# ---------------------------------------------------------------------------
-# Base
-# ---------------------------------------------------------------------------
 
 class Empresa(db.Model):
     """O cliente que aluga o sistema."""
@@ -140,10 +121,6 @@ class CentroCusto(db.Model):
         return f"<CentroCusto {self.id} {self.nome}>"
 
 
-# ---------------------------------------------------------------------------
-# Documentos
-# ---------------------------------------------------------------------------
-
 class NotaFiscal(db.Model):
     """O documento fiscal: o que a empresa deve e por que."""
 
@@ -192,8 +169,6 @@ class NotaFiscal(db.Model):
         "Titulo", back_populates="nota", cascade="all, delete-orphan"
     )
 
-    # -- calculos -----------------------------------------------------------
-
     @property
     def total_titulos(self):
         """Soma dos titulos nao cancelados."""
@@ -228,8 +203,6 @@ class NotaFiscal(db.Model):
     def tem_pagamento(self):
         """Nota com parcela ja paga nao pode ter valor ou parcelas alterados."""
         return any(t.status == StatusTitulo.PAGO for t in self.titulos)
-
-    # -- acoes --------------------------------------------------------------
 
     def cancelar(self, usuario, motivo):
         """Cancela a nota e os titulos ainda em aberto. Titulos pagos ficam intactos."""
@@ -285,8 +258,6 @@ class Titulo(db.Model):
 
     nota = db.relationship("NotaFiscal", back_populates="titulos")
 
-    # -- calculos -----------------------------------------------------------
-
     @property
     def vencido(self):
         """Calculado, nunca gravado. Status gravado exigiria rotina diaria e mentiria se falhasse."""
@@ -307,8 +278,6 @@ class Titulo(db.Model):
         if self.valor_pago is None:
             return Decimal("0.00")
         return self.valor_pago - self.valor
-
-    # -- acoes --------------------------------------------------------------
 
     def baixar(self, usuario, data_pagamento, valor_pago,
                juros=None, multa=None, desconto=None, observacao=None):

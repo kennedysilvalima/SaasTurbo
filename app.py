@@ -1,10 +1,3 @@
-"""
-Sistema de contas a pagar - NFs e boletos.
-
-Regra que vale para o arquivo inteiro: toda consulta a dado de cliente passa
-por da_empresa(). Nunca escreva Model.query.all() aqui.
-"""
-
 import csv
 import io
 import os
@@ -43,11 +36,6 @@ login_manager.login_message = "Entre para continuar."
 def carregar_usuario(user_id):
     return db.session.get(Usuario, int(user_id))
 
-
-# ---------------------------------------------------------------------------
-# Isolamento entre empresas
-# ---------------------------------------------------------------------------
-
 def da_empresa(modelo):
     """Ponto unico de filtro por empresa. Toda consulta comeca por aqui."""
     return modelo.query.filter_by(empresa_id=current_user.empresa_id)
@@ -81,10 +69,6 @@ def paginar(consulta, por_pagina=40):
     return itens, {"atual": pagina, "ultima": ultima, "total": total}
 
 
-# ---------------------------------------------------------------------------
-# Autenticacao
-# ---------------------------------------------------------------------------
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
@@ -111,10 +95,6 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
-
-# ---------------------------------------------------------------------------
-# Painel
-# ---------------------------------------------------------------------------
 
 @app.route("/")
 @login_required
@@ -157,10 +137,6 @@ def painel():
         ],
     )
 
-
-# ---------------------------------------------------------------------------
-# Titulos
-# ---------------------------------------------------------------------------
 
 FILTROS = {
     "abertos": "Em aberto",
@@ -242,10 +218,6 @@ def estornar_titulo(id_):
         flash(str(e), "erro")
     return redirect(request.referrer or url_for("titulos"))
 
-
-# ---------------------------------------------------------------------------
-# Notas
-# ---------------------------------------------------------------------------
 
 @app.route("/notas")
 @login_required
@@ -348,13 +320,6 @@ def gerar_parcelas(valor_total, quantidade, primeiro_vencimento, intervalo=30):
         })
     return parcelas
 
-
-# ---------------------------------------------------------------------------
-# Importacao de PDF
-# ---------------------------------------------------------------------------
-#
-# O arquivo nao e guardado. E gravado em disco temporario so para a leitura,
-# apagado em seguida, e o que sobra sao os dados no formulario.
 
 @app.route("/importar")
 @login_required
@@ -540,10 +505,6 @@ def _texto_decimal(valor):
     return f"{Decimal(valor):.2f}" if valor is not None else ""
 
 
-# ---------------------------------------------------------------------------
-# Fornecedores
-# ---------------------------------------------------------------------------
-
 @app.route("/fornecedores", methods=["GET", "POST"])
 @login_required
 def fornecedores():
@@ -569,11 +530,6 @@ def fornecedores():
         Fornecedor.ativo.desc(), Fornecedor.razao_social).all()
     return render_template("fornecedores.html", fornecedores=lista)
 
-
-# ---------------------------------------------------------------------------
-# Edicao de nota e de titulo
-# ---------------------------------------------------------------------------
-
 @app.route("/notas/<int:id_>/editar", methods=["GET", "POST"])
 @login_required
 def editar_nota(id_):
@@ -591,7 +547,7 @@ def editar_nota(id_):
         nota.tipo = request.form.get("tipo")
         nota.descricao = request.form.get("descricao", "").strip() or None
 
-        # Valor e parcelas so mudam enquanto nada foi pago.
+        
         if not nota.tem_pagamento:
             nota.valor_total = _decimal(request.form["valor_total"])
             for titulo in nota.titulos:
@@ -625,10 +581,6 @@ def cancelar_titulo(id_):
         flash("Título cancelado.", "ok")
     return redirect(request.referrer or url_for("titulos"))
 
-
-# ---------------------------------------------------------------------------
-# Centros de custo
-# ---------------------------------------------------------------------------
 
 def _centros_ativos():
     return da_empresa(CentroCusto).filter_by(ativo=True).order_by(CentroCusto.nome).all()
@@ -666,10 +618,6 @@ def alternar_centro(id_):
     flash(f"Centro de custo {'reativado' if centro.ativo else 'desativado'}.", "ok")
     return redirect(url_for("centros"))
 
-
-# ---------------------------------------------------------------------------
-# Usuarios
-# ---------------------------------------------------------------------------
 
 @app.route("/usuarios", methods=["GET", "POST"])
 @login_required
@@ -736,10 +684,6 @@ PAPEIS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Relatorios
-# ---------------------------------------------------------------------------
-
 def _consulta_relatorio():
     """Monta a consulta a partir dos filtros da tela. Usada na tela e no CSV."""
     consulta = da_empresa(Titulo).join(NotaFiscal).join(Fornecedor)
@@ -779,7 +723,6 @@ def relatorios():
     aberto = sum((t.valor for t in linhas if t.status == StatusTitulo.ABERTO),
                  Decimal("0.00"))
 
-    # Quanto se perdeu (ou economizou) por pagar fora do prazo.
     acrescimos = sum((t.acrescimo for t in linhas if t.valor_pago), Decimal("0.00"))
 
     por_fornecedor = {}
@@ -874,10 +817,6 @@ def alternar_fornecedor(id_):
     flash(f"Fornecedor {'reativado' if fornecedor.ativo else 'desativado'}.", "ok")
     return redirect(url_for("fornecedores"))
 
-
-# ---------------------------------------------------------------------------
-# Conversao e formatacao
-# ---------------------------------------------------------------------------
 
 def _data(valor):
     if not valor:
