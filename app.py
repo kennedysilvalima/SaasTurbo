@@ -1,23 +1,132 @@
+
+Claude terminou a resposta
+python criar_banco.py "Global Engenharia" 12345678000199 "Kennedy" seu@email.com suasenha, substitua por kennedysilvalima17@gmail.com; lima2026
+
+O comando fica assim:
+
+bash
+python criar_banco.py "Global Engenharia" 12345678000199 "Kennedy" kennedysilvalima17@gmail.com lima2026
+Duas coisas antes de rodar.
+
+Se você já tem um usuário criado com outro e-mail, esse comando cria um segundo login — não substitui o primeiro. Você fica com dois acessos válidos. Para desativar o antigo, use a tela de Usuários depois de entrar.
+
+Sobre lima2026: é fraca para um site público. Sobrenome mais ano é um dos padrões que ataques automatizados testam primeiro, e seu endereço é conhecido. Como agora você tem a tela de perfil, dá para entrar com ela e trocar por algo melhor em seguida — mas o ideal é já criar com uma senha decente.
+
+Uma frase longa resolve: boleto-roxo-de-terca-41 é bem mais difícil de quebrar que Lima@2026! e mais fácil de lembrar.
+
+Se quiser criar já com senha forte:
+
+bash
+python criar_banco.py "Global Engenharia" 12345678000199 "Kennedy" kennedysilvalima17@gmail.com "sua-frase-longa-aqui"
+As aspas são necessárias se a senha tiver espaços.
+
+quebrou o site
+
+Preciso ver o erro. Aba Web → Log files → Error log, últimas linhas.
+
+Enquanto isso, os dois suspeitos mais prováveis:
+
+1. O centros.html ainda está no servidor e o base.html novo não aponta mais para ele — mas se algum template antigo ficou, ou se o projetos.html não subiu, dá TemplateNotFound.
+
+bash
+cd ~/meuprojeto
+ls templates
+Deve ter projetos.html e não ter centros.html.
+
+2. A tabela projeto não foi criada, se o criar_banco.py não rodou ou deu erro. O sintoma seria no such table: projeto — igual ao que aconteceu com as solicitações.
+
+bash
+python -c "import sqlite3; print([r[0] for r in sqlite3.connect('contas.sqlite3').execute(\"select name from sqlite_master where type='table'\")])"
+Deve listar projeto.
+
+Manda o log e a saída desses dois comandos que eu digo exatamente o que fazer.
+
+File "/home/SaasTurbo/meuprojeto/templates/usuarios.html", line 62, in block 'conteudo'
+    {% if not historicos.get(u.id) %}
+    ^^^^^^^^^^^^^^^^^^^
+  File "/home/SaasTurbo/.virtualenvs/meuenv/lib/python3.13/site-packages/jinja2/environment.py", line 490, in getattr
+    return getattr(obj, attribute)
+jinja2.exceptions.UndefinedError: 'historicos' is undefined
+Executou um comando
+O app.py no servidor é de uma versão anterior. Ele não envia os dados que o usuarios.html espera.
+
+Confirme no console Bash:
+
+bash
+cd ~/meuprojeto
+grep -c historicos app.py
+grep -c "def projetos" app.py
+Se der 0 em algum, é isso: você baixou um app.py de uma mensagem mais antiga da conversa. Vários arquivos aqui têm o mesmo nome, e é fácil clicar no link errado.
+
+Vou reenviar a versão atual.
+
+Executou um comando, leu um arquivo
+Esta é a versão completa, com tudo que a gente construiu.
+
+1. Onde colocar
+
+D:\SaasTurbo\
+└── app.py       ← SUBSTITUIR
+2. Confira antes de commitar — na sua máquina:
+
+powershell
+findstr /c:"def projetos" /c:"def perfil" /c:"def excluir_usuario" /c:"historicos" app.py
+Devem aparecer as quatro. Se faltar alguma, o arquivo errado foi copiado.
+
+3. Envie
+
+powershell
+git status
+git add -A
+git commit -m "corrige app.py incompleto"
+git push
+4. No PythonAnywhere
+
+bash
+cd ~/meuprojeto
+git pull
+grep -c "def projetos" app.py
+Deve responder 1.
+
+5. Aba Web → Reload
+
+O que aconteceu
+
+Cada entrega minha gerou um link chamado app.py. Quando você rolou a conversa para baixar, pegou um de uma mensagem anterior — o da tela de perfil, que ainda não tinha nem a exclusão de usuário nem os projetos.
+
+Como os templates estavam na versão nova e o app.py na antiga, a tela de Usuários pediu um dado que a rota não enviava mais.
+
+Como evitar daqui pra frente: baixe sempre da mensagem mais recente, e confirme com o findstr antes de commitar. É rápido e pega o erro antes de ir para o servidor.
+
+
+App
+PY 
+
+Escreva uma mensagem…
+
+
+Claude é uma IA e pode cometer erros. Verifique sempre as respostas.
+App · PY
 import csv
 import io
 import os
 import tempfile
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
-
+ 
 from flask import (Flask, Response, abort, flash, jsonify, redirect,
                    render_template, request, url_for)
 from flask_login import (LoginManager, current_user, login_required,
                          login_user, logout_user)
 from sqlalchemy import func
-
+ 
 import extratores
 from models import (Empresa, Fornecedor, NotaFiscal, Papel, Projeto,
                     SolicitacaoCancelamento, StatusNota, StatusSolicitacao,
                     StatusTitulo, Titulo, Usuario, db)
-
+ 
 BASE = os.path.abspath(os.path.dirname(__file__))
-
+ 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "troque-isto-em-producao")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
@@ -25,105 +134,105 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
-
+ 
 db.init_app(app)
-
+ 
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Entre para continuar."
-
-
+ 
+ 
 @login_manager.user_loader
 def carregar_usuario(user_id):
     return db.session.get(Usuario, int(user_id))
-
-
+ 
+ 
 def da_empresa(modelo):
     return modelo.query.filter_by(empresa_id=current_user.empresa_id)
-
-
+ 
+ 
 def _titulos_validos():
     return da_empresa(Titulo).join(NotaFiscal).filter(
         Titulo.status != StatusTitulo.CANCELADO,
         NotaFiscal.status != StatusNota.CANCELADA,
     )
-
-
+ 
+ 
 def buscar_ou_404(modelo, id_):
     obj = da_empresa(modelo).filter_by(id=id_).first()
     if obj is None:
         abort(404)
     return obj
-
-
+ 
+ 
 def somente_admin(funcao):
     from functools import wraps
-
+ 
     @wraps(funcao)
     def interna(*args, **kwargs):
         if current_user.papel != Papel.ADMIN:
             abort(403)
         return funcao(*args, **kwargs)
     return interna
-
-
+ 
+ 
 def paginar(consulta, por_pagina=40):
     pagina = max(1, request.args.get("pagina", 1, type=int))
     total = consulta.count()
     itens = consulta.limit(por_pagina).offset((pagina - 1) * por_pagina).all()
     ultima = max(1, -(-total // por_pagina))
     return itens, {"atual": pagina, "ultima": ultima, "total": total}
-
-
+ 
+ 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("painel"))
-
+ 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         senha = request.form.get("senha", "")
         usuario = Usuario.query.filter_by(email=email, ativo=True).first()
-
+ 
         if usuario and usuario.conferir_senha(senha):
             login_user(usuario)
             return redirect(request.args.get("next") or url_for("painel"))
-
-
+ 
+ 
         flash("E-mail ou senha incorretos.", "erro")
-
+ 
     return render_template("login.html")
-
-
+ 
+ 
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("login"))
-
-
+ 
+ 
 @app.route("/")
 @login_required
 def painel():
     hoje = date.today()
     em_aberto = _titulos_validos().filter(Titulo.status == StatusTitulo.ABERTO)
-
+ 
     def somar(consulta):
         return consulta.with_entities(
             func.coalesce(func.sum(Titulo.valor), 0)
         ).scalar() or Decimal("0.00")
-
+ 
     vencidos = em_aberto.filter(Titulo.vencimento < hoje)
     vence_hoje = em_aberto.filter(Titulo.vencimento == hoje)
     proximos = em_aberto.filter(
         Titulo.vencimento > hoje, Titulo.vencimento <= hoje + timedelta(days=7)
     )
-
+ 
     pago_mes = _titulos_validos().filter(
         Titulo.status == StatusTitulo.PAGO,
         Titulo.data_pagamento >= hoje.replace(day=1),
     )
-
+ 
     return render_template(
         "painel.html",
         hoje=hoje,
@@ -142,8 +251,8 @@ def painel():
             .filter_by(status=StatusNota.PENDENTE).all() if n.sem_titulos
         ],
     )
-
-
+ 
+ 
 FILTROS = {
     "abertos": "Em aberto",
     "vencidos": "Vencidos",
@@ -151,8 +260,8 @@ FILTROS = {
     "pagos": "Pagos",
     "todos": "Todos",
 }
-
-
+ 
+ 
 @app.route("/titulos")
 @login_required
 def titulos():
@@ -160,13 +269,13 @@ def titulos():
     busca = request.args.get("busca", "").strip()
     hoje = date.today()
     consulta = da_empresa(Titulo).join(NotaFiscal).join(Fornecedor)
-
+ 
     if filtro != "todos":
         consulta = consulta.filter(
             Titulo.status != StatusTitulo.CANCELADO,
             NotaFiscal.status != StatusNota.CANCELADA,
         )
-
+ 
     if filtro == "abertos":
         consulta = consulta.filter(Titulo.status == StatusTitulo.ABERTO)
     elif filtro == "vencidos":
@@ -177,27 +286,27 @@ def titulos():
                                    Titulo.vencimento <= hoje + timedelta(days=7))
     elif filtro == "pagos":
         consulta = consulta.filter(Titulo.status == StatusTitulo.PAGO)
-
+ 
     if busca:
         alvo = f"%{busca}%"
         consulta = consulta.filter(
             db.or_(Fornecedor.razao_social.ilike(alvo), NotaFiscal.numero.ilike(alvo))
         )
-
+ 
     ordem = Titulo.data_pagamento.desc() if filtro == "pagos" else Titulo.vencimento
     itens, pagina = paginar(consulta.order_by(ordem))
-
+ 
     return render_template("titulos.html", titulos=itens, filtro=filtro,
                            filtros=FILTROS, hoje=hoje, busca=busca, pagina=pagina)
-
-
+ 
+ 
 @app.route("/titulos/<int:id_>/baixar", methods=["POST"])
 @login_required
 def baixar_titulo(id_):
     titulo = buscar_ou_404(Titulo, id_)
     try:
-
-
+ 
+ 
         informado = request.form.get("valor_pago")
         titulo.baixar(
             usuario=current_user,
@@ -212,8 +321,8 @@ def baixar_titulo(id_):
     except ValueError as e:
         flash(str(e), "erro")
     return redirect(request.referrer or url_for("titulos"))
-
-
+ 
+ 
 @app.route("/titulos/<int:id_>/estornar", methods=["POST"])
 @login_required
 def estornar_titulo(id_):
@@ -229,8 +338,8 @@ def estornar_titulo(id_):
     except ValueError as e:
         flash(str(e), "erro")
     return redirect(request.referrer or url_for("titulos"))
-
-
+ 
+ 
 @app.route("/notas")
 @login_required
 def notas():
@@ -245,21 +354,21 @@ def notas():
         )
     itens, pagina = paginar(consulta.order_by(NotaFiscal.data_emissao.desc()))
     return render_template("notas.html", notas=itens, busca=busca, pagina=pagina)
-
-
+ 
+ 
 @app.route("/notas/nova", methods=["GET", "POST"])
 @login_required
 def nova_nota():
     fornecedores = da_empresa(Fornecedor).filter_by(ativo=True).order_by(
         Fornecedor.razao_social).all()
-
+ 
     if request.method == "POST":
         chave = _so_digitos(request.form.get("chave_acesso"))
         if chave and da_empresa(NotaFiscal).filter_by(chave_acesso=chave).first():
             flash("Esta nota já foi lançada.", "erro")
             return render_template("nota_form.html", fornecedores=fornecedores,
                                    projetos=_projetos_ativos(), dados=request.form)
-
+ 
         nota = NotaFiscal(
             empresa_id=current_user.empresa_id,
             fornecedor_id=int(request.form["fornecedor_id"]),
@@ -275,7 +384,7 @@ def nova_nota():
         )
         db.session.add(nota)
         db.session.flush()
-
+ 
         for parcela in gerar_parcelas(
             valor_total=nota.valor_total,
             quantidade=int(request.form.get("qtd_parcelas") or 1),
@@ -288,15 +397,15 @@ def nova_nota():
                 forma_pagamento=request.form.get("forma_pagamento"),
                 **parcela,
             ))
-
+ 
         db.session.commit()
         flash(f"Nota {nota.numero} lançada.", "ok")
         return redirect(url_for("notas"))
-
+ 
     return render_template("nota_form.html", fornecedores=fornecedores,
                            projetos=_projetos_ativos(), dados={})
-
-
+ 
+ 
 @app.route("/notas/<int:id_>/cancelar", methods=["POST"])
 @login_required
 def cancelar_nota(id_):
@@ -311,12 +420,12 @@ def cancelar_nota(id_):
         db.session.commit()
         flash("Nota cancelada. Os títulos em aberto também foram cancelados.", "ok")
     return redirect(url_for("notas"))
-
-
+ 
+ 
 def gerar_parcelas(valor_total, quantidade, primeiro_vencimento, intervalo=30):
     quantidade = max(1, quantidade)
     base = (valor_total / quantidade).quantize(Decimal("0.01"), ROUND_HALF_UP)
-
+ 
     parcelas = []
     for i in range(quantidade):
         valor = base if i < quantidade - 1 else valor_total - base * (quantidade - 1)
@@ -327,8 +436,8 @@ def gerar_parcelas(valor_total, quantidade, primeiro_vencimento, intervalo=30):
             "valor": valor,
         })
     return parcelas
-
-
+ 
+ 
 @app.route("/importar")
 @login_required
 def importar():
@@ -336,8 +445,8 @@ def importar():
         Fornecedor.razao_social).all()
     return render_template("importar.html", fornecedores=fornecedores,
                            projetos=_projetos_ativos())
-
-
+ 
+ 
 @app.route("/importar/ler", methods=["POST"])
 @login_required
 def ler_pdfs():
@@ -347,10 +456,10 @@ def ler_pdfs():
             leituras.append({"tipo": "invalido", "arquivo": enviado.filename})
             continue
         leituras.append({"arquivo": enviado.filename, **_ler_em_memoria(enviado)})
-
+ 
     return jsonify(_juntar(leituras))
-
-
+ 
+ 
 def _ler_em_memoria(enviado):
     caminho = None
     try:
@@ -363,16 +472,16 @@ def _ler_em_memoria(enviado):
     finally:
         if caminho and os.path.exists(caminho):
             os.remove(caminho)
-
-
+ 
+ 
 def _juntar(leituras):
     danfe = next((l for l in leituras if l.get("tipo") == "danfe"), None)
     boletos = [l for l in leituras if l.get("tipo") == "boleto"]
     avisos = [f"{l['arquivo']}: {l.get('aviso', 'não reconhecido')}"
               for l in leituras if l.get("tipo") in ("sem_texto", "erro", "desconhecido", "invalido")]
-
+ 
     nota, parcelas, fornecedor = {}, [], {}
-
+ 
     if danfe:
         fornecedor = danfe.get("fornecedor") or {}
         nota = {
@@ -388,11 +497,11 @@ def _juntar(leituras):
         ]
         if not parcelas and not boletos:
             avisos.append("a nota não traz parcelas — informe os vencimentos à mão")
-
+ 
     if not fornecedor and boletos:
         fornecedor = boletos[0].get("fornecedor") or {}
-
-
+ 
+ 
     for b in boletos:
         alvo = next(
             (p for p in parcelas
@@ -408,34 +517,34 @@ def _juntar(leituras):
                 "valor": _texto_decimal(b.get("valor")),
                 "linha_digitavel": b["linha_digitavel"],
             })
-
+ 
     parcelas.sort(key=lambda p: p["vencimento"] or "")
-
+ 
     if fornecedor.get("cnpj"):
         existente = _fornecedor_por_cnpj(fornecedor["cnpj"])
         fornecedor["id"] = existente.id if existente else None
         if not existente:
             avisos.append(f"fornecedor {fornecedor.get('razao_social', '')} ainda não cadastrado")
-
+ 
     if nota.get("chave_acesso"):
         if da_empresa(NotaFiscal).filter_by(chave_acesso=nota["chave_acesso"]).first():
             avisos.append("esta nota já foi lançada antes")
-
+ 
     return {"nota": nota, "parcelas": parcelas, "fornecedor": fornecedor, "avisos": avisos}
-
-
+ 
+ 
 def _fornecedor_por_cnpj(cnpj):
     exato = da_empresa(Fornecedor).filter_by(cnpj=cnpj).first()
     if exato:
         return exato
     return da_empresa(Fornecedor).filter(Fornecedor.cnpj.like(cnpj[:8] + "%")).first()
-
-
+ 
+ 
 @app.route("/importar/salvar", methods=["POST"])
 @login_required
 def salvar_importada():
     fornecedor_id = request.form.get("fornecedor_id")
-
+ 
     if not fornecedor_id:
         razao = request.form.get("nova_razao_social", "").strip()
         cnpj = _so_digitos(request.form.get("novo_cnpj"))
@@ -447,12 +556,12 @@ def salvar_importada():
         db.session.add(novo)
         db.session.flush()
         fornecedor_id = novo.id
-
+ 
     chave = _so_digitos(request.form.get("chave_acesso"))
     if chave and da_empresa(NotaFiscal).filter_by(chave_acesso=chave).first():
         flash("Esta nota já foi lançada.", "erro")
         return redirect(url_for("importar"))
-
+ 
     nota = NotaFiscal(
         empresa_id=current_user.empresa_id,
         fornecedor_id=int(fornecedor_id),
@@ -467,12 +576,12 @@ def salvar_importada():
     )
     db.session.add(nota)
     db.session.flush()
-
+ 
     vencimentos = request.form.getlist("parcela_vencimento")
     valores = request.form.getlist("parcela_valor")
     linhas = request.form.getlist("parcela_linha")
     total = len(vencimentos)
-
+ 
     for i, (venc, valor) in enumerate(zip(vencimentos, valores), start=1):
         if not venc:
             continue
@@ -486,20 +595,20 @@ def salvar_importada():
             linha_digitavel=(linhas[i - 1] if i - 1 < len(linhas) else "") or None,
             forma_pagamento=request.form.get("forma_pagamento"),
         ))
-
+ 
     db.session.commit()
     flash(f"Nota {nota.numero} lançada com {total} parcela(s).", "ok")
     return redirect(url_for("notas"))
-
-
+ 
+ 
 def _iso(valor):
     return valor.isoformat() if hasattr(valor, "isoformat") else (valor or "")
-
-
+ 
+ 
 def _texto_decimal(valor):
     return f"{Decimal(valor):.2f}" if valor is not None else ""
-
-
+ 
+ 
 @app.route("/fornecedores", methods=["GET", "POST"])
 @login_required
 def fornecedores():
@@ -520,21 +629,21 @@ def fornecedores():
             db.session.commit()
             flash("Fornecedor cadastrado.", "ok")
         return redirect(url_for("fornecedores"))
-
+ 
     lista = da_empresa(Fornecedor).order_by(
         Fornecedor.ativo.desc(), Fornecedor.razao_social).all()
     return render_template("fornecedores.html", fornecedores=lista)
-
-
+ 
+ 
 @app.route("/notas/<int:id_>/editar", methods=["GET", "POST"])
 @login_required
 def editar_nota(id_):
     nota = buscar_ou_404(NotaFiscal, id_)
-
+ 
     if nota.status == StatusNota.CANCELADA:
         flash("Nota cancelada não pode ser editada.", "erro")
         return redirect(url_for("notas"))
-
+ 
     if request.method == "POST":
         nota.numero = request.form["numero"].strip()
         nota.serie = request.form.get("serie", "").strip() or None
@@ -542,8 +651,8 @@ def editar_nota(id_):
         nota.projeto = request.form.get("projeto") or None
         nota.tipo = request.form.get("tipo")
         nota.descricao = request.form.get("descricao", "").strip() or None
-
-
+ 
+ 
         if not nota.tem_pagamento:
             nota.valor_total = _decimal(request.form["valor_total"])
             for titulo in nota.titulos:
@@ -555,15 +664,15 @@ def editar_nota(id_):
                     if valor:
                         titulo.valor = _decimal(valor)
                     titulo.linha_digitavel = request.form.get(f"linha_{titulo.id}") or None
-
+ 
         db.session.commit()
         flash("Nota atualizada.", "ok")
         return redirect(url_for("notas"))
-
+ 
     return render_template("nota_editar.html", nota=nota,
                            projetos=_projetos_ativos())
-
-
+ 
+ 
 @app.route("/titulos/<int:id_>/cancelar", methods=["POST"])
 @login_required
 def cancelar_titulo(id_):
@@ -576,22 +685,22 @@ def cancelar_titulo(id_):
         db.session.commit()
         flash("Título cancelado.", "ok")
     return redirect(request.referrer or url_for("titulos"))
-
-
+ 
+ 
 def _projetos_ativos():
     return da_empresa(Projeto).filter_by(ativo=True).order_by(Projeto.nome).all()
-
-
+ 
+ 
 @app.route("/projetos", methods=["GET", "POST"])
 @login_required
 def projetos():
     if request.method == "POST":
         if current_user.papel != Papel.ADMIN:
             abort(403)
-
+ 
         nome = request.form.get("nome", "").strip()
         unidades = request.form.get("unidades", type=int)
-
+ 
         if not nome:
             flash("Informe o nome do projeto.", "erro")
         elif unidades is None or unidades < 0:
@@ -607,11 +716,11 @@ def projetos():
             db.session.commit()
             flash(f"Projeto {nome} cadastrado.", "ok")
         return redirect(url_for("projetos"))
-
+ 
     lista = da_empresa(Projeto).order_by(Projeto.ativo.desc(), Projeto.nome).all()
     return render_template("projetos.html", projetos=lista)
-
-
+ 
+ 
 @app.route("/projetos/<int:id_>/editar", methods=["POST"])
 @login_required
 @somente_admin
@@ -619,10 +728,10 @@ def editar_projeto(id_):
     projeto = buscar_ou_404(Projeto, id_)
     nome = request.form.get("nome", "").strip()
     unidades = request.form.get("unidades", type=int)
-
+ 
     outro = da_empresa(Projeto).filter(
         Projeto.nome == nome, Projeto.id != projeto.id).first()
-
+ 
     if not nome or unidades is None or unidades < 0:
         flash("Nome e quantidade de unidades são obrigatórios.", "erro")
     elif outro:
@@ -636,10 +745,10 @@ def editar_projeto(id_):
                 nota.projeto = nome
         db.session.commit()
         flash("Projeto atualizado.", "ok")
-
+ 
     return redirect(url_for("projetos"))
-
-
+ 
+ 
 @app.route("/projetos/<int:id_>/alternar", methods=["POST"])
 @login_required
 @somente_admin
@@ -649,8 +758,8 @@ def alternar_projeto(id_):
     db.session.commit()
     flash(f"Projeto {'reaberto' if projeto.ativo else 'concluído'}.", "ok")
     return redirect(url_for("projetos"))
-
-
+ 
+ 
 @app.route("/usuarios", methods=["GET", "POST"])
 @login_required
 @somente_admin
@@ -658,7 +767,7 @@ def usuarios():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         senha = request.form.get("senha", "")
-
+ 
         if len(senha) < 8:
             flash("A senha precisa ter ao menos 8 caracteres.", "erro")
         elif Usuario.query.filter_by(email=email).first():
@@ -675,13 +784,13 @@ def usuarios():
             db.session.commit()
             flash(f"Usuário {novo.nome} cadastrado.", "ok")
         return redirect(url_for("usuarios"))
-
+ 
     lista = da_empresa(Usuario).order_by(Usuario.ativo.desc(), Usuario.nome).all()
     historicos = {u.id: sum(_historico_do_usuario(u).values()) for u in lista}
     return render_template("usuarios.html", usuarios=lista, papeis=PAPEIS,
                            historicos=historicos)
-
-
+ 
+ 
 @app.route("/usuarios/<int:id_>/alternar", methods=["POST"])
 @login_required
 @somente_admin
@@ -694,8 +803,8 @@ def alternar_usuario(id_):
         db.session.commit()
         flash(f"Acesso de {usuario.nome} {'liberado' if usuario.ativo else 'bloqueado'}.", "ok")
     return redirect(url_for("usuarios"))
-
-
+ 
+ 
 @app.route("/usuarios/<int:id_>/senha", methods=["POST"])
 @login_required
 @somente_admin
@@ -709,15 +818,15 @@ def trocar_senha(id_):
         db.session.commit()
         flash(f"Senha de {usuario.nome} alterada.", "ok")
     return redirect(url_for("usuarios"))
-
-
+ 
+ 
 PAPEIS = {
     Papel.ADMIN: "Administrador",
     Papel.OPERADOR: "Operador",
     Papel.LEITURA: "Somente leitura",
 }
-
-
+ 
+ 
 def _historico_do_usuario(usuario):
     return {
         "notas lançadas": da_empresa(NotaFiscal).filter_by(
@@ -731,18 +840,18 @@ def _historico_do_usuario(usuario):
         "solicitações respondidas": da_empresa(SolicitacaoCancelamento).filter_by(
             decidida_por_id=usuario.id).count(),
     }
-
-
+ 
+ 
 @app.route("/usuarios/<int:id_>/excluir", methods=["POST"])
 @login_required
 @somente_admin
 def excluir_usuario(id_):
     usuario = buscar_ou_404(Usuario, id_)
-
+ 
     if usuario.id == current_user.id:
         flash("Você não pode excluir o próprio cadastro.", "erro")
         return redirect(url_for("usuarios"))
-
+ 
     historico = {k: v for k, v in _historico_do_usuario(usuario).items() if v}
     if historico:
         resumo = ", ".join(f"{v} {k}" for k, v in historico.items())
@@ -751,35 +860,35 @@ def excluir_usuario(id_):
             f"({resumo}). Bloqueie o acesso para impedir a entrada sem apagar os "
             f"registros.", "erro")
         return redirect(url_for("usuarios"))
-
+ 
     nome = usuario.nome
     db.session.delete(usuario)
     db.session.commit()
     flash(f"Cadastro de {nome} excluído.", "ok")
     return redirect(url_for("usuarios"))
-
-
+ 
+ 
 def _consulta_relatorio():
     consulta = da_empresa(Titulo).join(NotaFiscal).join(Fornecedor)
-
+ 
     de = request.args.get("de")
     ate = request.args.get("ate")
     base = request.args.get("base", "vencimento")
     campo = Titulo.data_pagamento if base == "pagamento" else Titulo.vencimento
-
+ 
     if de:
         consulta = consulta.filter(campo >= _data(de))
     if ate:
         consulta = consulta.filter(campo <= _data(ate))
-
+ 
     fornecedor_id = request.args.get("fornecedor_id", type=int)
     if fornecedor_id:
         consulta = consulta.filter(NotaFiscal.fornecedor_id == fornecedor_id)
-
+ 
     projeto = request.args.get("projeto")
     if projeto:
         consulta = consulta.filter(NotaFiscal.projeto == projeto)
-
+ 
     situacao = request.args.get("situacao")
     if situacao == StatusTitulo.CANCELADO:
         consulta = consulta.filter(
@@ -793,28 +902,28 @@ def _consulta_relatorio():
         )
         if situacao in (StatusTitulo.ABERTO, StatusTitulo.PAGO):
             consulta = consulta.filter(Titulo.status == situacao)
-
+ 
     return consulta.order_by(campo)
-
-
+ 
+ 
 @app.route("/relatorios")
 @login_required
 def relatorios():
     linhas = _consulta_relatorio().all()
-
+ 
     total = sum((t.valor for t in linhas), Decimal("0.00"))
     pago = sum((t.valor_pago for t in linhas if t.valor_pago), Decimal("0.00"))
     aberto = sum((t.valor for t in linhas if t.status == StatusTitulo.ABERTO),
                  Decimal("0.00"))
-
-
+ 
+ 
     acrescimos = sum((t.acrescimo for t in linhas if t.valor_pago), Decimal("0.00"))
-
+ 
     por_fornecedor = {}
     for t in linhas:
         nome = t.nota.fornecedor.razao_social
         por_fornecedor[nome] = por_fornecedor.get(nome, Decimal("0.00")) + t.valor
-
+ 
     return render_template(
         "relatorios.html",
         linhas=linhas,
@@ -824,8 +933,8 @@ def relatorios():
         projetos=_projetos_ativos(),
         hoje=date.today(),
     )
-
-
+ 
+ 
 @app.route("/relatorios/csv")
 @login_required
 def relatorio_csv():
@@ -836,10 +945,10 @@ def relatorio_csv():
         "Projeto", "Valor", "Data pagamento", "Valor pago",
         "Juros", "Multa", "Desconto",
     ])
-
+ 
     def br(valor):
         return f"{valor:.2f}".replace(".", ",") if valor is not None else ""
-
+ 
     for t in _consulta_relatorio().all():
         escritor.writerow([
             t.vencimento.strftime("%d/%m/%Y"),
@@ -854,20 +963,20 @@ def relatorio_csv():
             br(t.valor_pago),
             br(t.juros), br(t.multa), br(t.desconto),
         ])
-
+ 
     nome = f"contas-a-pagar-{date.today():%Y-%m-%d}.csv"
     return Response(
         "\ufeff" + saida.getvalue(),
         mimetype="text/csv; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename={nome}"},
     )
-
-
+ 
+ 
 @app.route("/fornecedores/<int:id_>/editar", methods=["GET", "POST"])
 @login_required
 def editar_fornecedor(id_):
     fornecedor = buscar_ou_404(Fornecedor, id_)
-
+ 
     if request.method == "POST":
         cnpj = _so_digitos(request.form.get("cnpj"))
         outro = da_empresa(Fornecedor).filter(
@@ -884,10 +993,10 @@ def editar_fornecedor(id_):
             db.session.commit()
             flash("Fornecedor atualizado.", "ok")
             return redirect(url_for("fornecedores"))
-
+ 
     return render_template("fornecedor_editar.html", fornecedor=fornecedor)
-
-
+ 
+ 
 @app.route("/fornecedores/<int:id_>/alternar", methods=["POST"])
 @login_required
 def alternar_fornecedor(id_):
@@ -896,8 +1005,8 @@ def alternar_fornecedor(id_):
     db.session.commit()
     flash(f"Fornecedor {'reativado' if fornecedor.ativo else 'desativado'}.", "ok")
     return redirect(url_for("fornecedores"))
-
-
+ 
+ 
 @app.context_processor
 def contador_solicitacoes():
     if not current_user.is_authenticated or current_user.papel != Papel.ADMIN:
@@ -905,14 +1014,14 @@ def contador_solicitacoes():
     total = da_empresa(SolicitacaoCancelamento).filter_by(
         status=StatusSolicitacao.PENDENTE).count()
     return {"solicitacoes_pendentes": total}
-
-
+ 
+ 
 @app.route("/notas/<int:id_>/solicitar-cancelamento", methods=["POST"])
 @login_required
 def solicitar_cancelamento(id_):
     nota = buscar_ou_404(NotaFiscal, id_)
     motivo = request.form.get("motivo", "").strip()
-
+ 
     if nota.status == StatusNota.CANCELADA:
         flash("Esta nota já está cancelada.", "erro")
     elif len(motivo) < 10:
@@ -928,28 +1037,28 @@ def solicitar_cancelamento(id_):
         ))
         db.session.commit()
         flash("Solicitação enviada ao administrador.", "ok")
-
+ 
     return redirect(url_for("editar_nota", id_=nota.id))
-
-
+ 
+ 
 @app.route("/solicitacoes")
 @login_required
 def solicitacoes():
     consulta = da_empresa(SolicitacaoCancelamento)
     if current_user.papel != Papel.ADMIN:
         consulta = consulta.filter_by(solicitante_id=current_user.id)
-
+ 
     filtro = request.args.get("filtro", "pendentes")
     if filtro == "pendentes":
         consulta = consulta.filter_by(status=StatusSolicitacao.PENDENTE)
     elif filtro in (StatusSolicitacao.APROVADA, StatusSolicitacao.RECUSADA):
         consulta = consulta.filter_by(status=filtro)
-
+ 
     itens, pagina = paginar(consulta.order_by(SolicitacaoCancelamento.criada_em.desc()))
     return render_template("solicitacoes.html", solicitacoes=itens,
                            filtro=filtro, filtros=FILTROS_SOLICITACAO, pagina=pagina)
-
-
+ 
+ 
 @app.route("/solicitacoes/<int:id_>/decidir", methods=["POST"])
 @login_required
 @somente_admin
@@ -957,7 +1066,7 @@ def decidir_solicitacao(id_):
     solicitacao = buscar_ou_404(SolicitacaoCancelamento, id_)
     resposta = request.form.get("resposta", "").strip()
     decisao = request.form.get("decisao")
-
+ 
     try:
         if decisao == "aprovar":
             solicitacao.aprovar(current_user, resposta or None)
@@ -974,30 +1083,30 @@ def decidir_solicitacao(id_):
             flash("Decisão inválida.", "erro")
     except ValueError as e:
         flash(str(e), "erro")
-
+ 
     return redirect(url_for("solicitacoes"))
-
-
+ 
+ 
 FILTROS_SOLICITACAO = {
     "pendentes": "Pendentes",
     "aprovada": "Aprovadas",
     "recusada": "Recusadas",
     "todas": "Todas",
 }
-
-
+ 
+ 
 @app.route("/perfil", methods=["GET", "POST"])
 @login_required
 def perfil():
     if request.method == "POST":
         acao = request.form.get("acao")
-
+ 
         if acao == "dados":
             nome = request.form.get("nome", "").strip()
             email = request.form.get("email", "").strip().lower()
             ocupado = Usuario.query.filter(
                 Usuario.email == email, Usuario.id != current_user.id).first()
-
+ 
             if not nome:
                 flash("Informe seu nome.", "erro")
             elif ocupado:
@@ -1007,12 +1116,12 @@ def perfil():
                 current_user.email = email
                 db.session.commit()
                 flash("Dados atualizados.", "ok")
-
+ 
         elif acao == "senha":
             atual = request.form.get("senha_atual", "")
             nova = request.form.get("nova_senha", "")
             confirmacao = request.form.get("confirmacao", "")
-
+ 
             if not current_user.conferir_senha(atual):
                 flash("A senha atual não confere.", "erro")
             elif len(nova) < 8:
@@ -1025,16 +1134,16 @@ def perfil():
                 current_user.definir_senha(nova)
                 db.session.commit()
                 flash("Senha alterada.", "ok")
-
+ 
         return redirect(url_for("perfil"))
-
+ 
     lancadas = da_empresa(NotaFiscal).filter_by(criada_por_id=current_user.id).count()
     baixadas = da_empresa(Titulo).filter_by(baixado_por_id=current_user.id).count()
-
+ 
     return render_template("perfil.html", papeis=PAPEIS,
                            lancadas=lancadas, baixadas=baixadas)
-
-
+ 
+ 
 def _data(valor):
     if not valor:
         return None
@@ -1043,8 +1152,8 @@ def _data(valor):
         return date(int(a), int(m), int(d))
     a, m, d = valor.split("-")
     return date(int(a), int(m), int(d))
-
-
+ 
+ 
 def _decimal(valor):
     if valor in (None, ""):
         return Decimal("0.00")
@@ -1052,12 +1161,12 @@ def _decimal(valor):
     if "," in texto:
         texto = texto.replace(".", "").replace(",", ".")
     return Decimal(texto)
-
-
+ 
+ 
 def _so_digitos(valor):
     return "".join(c for c in (valor or "") if c.isdigit())
-
-
+ 
+ 
 def _moeda(valor):
     if valor is None:
         return "—"
@@ -1070,11 +1179,14 @@ def _moeda(valor):
         inteiro = inteiro[:-3]
     grupos.insert(0, inteiro)
     return f"{'-' if negativo else ''}R$ {'.'.join(grupos)},{centavos}"
-
-
+ 
+ 
 app.jinja_env.filters["moeda"] = _moeda
 app.jinja_env.filters["data_br"] = lambda d: d.strftime("%d/%m/%Y") if d else "—"
-
-
+ 
+ 
 if __name__ == "__main__":
     app.run(debug=True)
+ 
+
+
