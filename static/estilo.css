@@ -113,15 +113,55 @@ nav a .contador {
 
 nav .rodape {
   margin-top: auto;
-  padding: 16px 22px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px 0;
   border-top: 1px solid rgba(255, 255, 255, .07);
-  font-size: 13px;
-  color: #7c8ea0;
 }
 
-nav .rodape strong { display: block; color: #ccd7e1; font-weight: 550; }
-nav .rodape a { margin: 6px 0 0; padding: 0; display: inline-block; font-size: 13px; }
-nav .rodape a:hover { background: none; color: #fff; text-decoration: underline; }
+nav .rodape .usuario {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: var(--raio-pequeno);
+}
+
+nav .rodape .usuario .inicial {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #2f8fa3, #14606f);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+nav .rodape .usuario .nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+}
+
+nav .rodape .sair {
+  flex-shrink: 0;
+  display: flex;
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--raio-pequeno);
+  color: #8b9cad;
+}
+
+nav .rodape .sair:hover { color: #fff; }
 
 main {
   flex: 1;
@@ -160,6 +200,8 @@ h2 { font-size: 16px; font-weight: 650; margin: 34px 0 12px; letter-spacing: -0.
   font-size: 13.5px;
   margin-bottom: 8px;
 }
+
+.resumo dd.texto { font-size: 17px; font-weight: 550; letter-spacing: 0; }
 
 .resumo dd {
   margin: 0;
@@ -508,8 +550,8 @@ body.entrada {
   vertical-align: 1px;
 }
 
-nav .rodape { margin: 0 0 0 auto; padding: 0 8px; border: none; white-space: nowrap; }
-  nav .rodape strong { display: none; }
+nav .rodape { margin: 0 0 0 auto; padding: 0; border: none; }
+  nav .rodape .usuario .nome { display: none; }
 
   main { padding: 20px 14px 40px; }
   h1 { font-size: 21px; }

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titulo %}Meu perfil{% endblock %}
+
+{% block conteudo %}
+<h1>Meu perfil</h1>
+<p class="legenda">Seus dados de acesso ao sistema.</p>
+
+<dl class="resumo">
+  <div>
+    <dt>Empresa</dt>
+    <dd class="texto">{{ current_user.empresa.razao_social }}</dd>
+  </div>
+  <div>
+    <dt>Permissão</dt>
+    <dd class="texto">{{ papeis.get(current_user.papel, current_user.papel) }}</dd>
+  </div>
+  <div>
+    <dt>Notas lançadas</dt>
+    <dd>{{ lancadas }}</dd>
+  </div>
+  <div>
+    <dt>Pagamentos registrados</dt>
+    <dd>{{ baixadas }}</dd>
+  </div>
+</dl>
+
+<h2>Dados pessoais</h2>
+<form method="post" class="cartao">
+  <input type="hidden" name="acao" value="dados">
+  <div class="grade">
+    <div class="campo">
+      <label for="nome">Nome</label>
+      <input id="nome" name="nome" required value="{{ current_user.nome }}">
+    </div>
+    <div class="campo">
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" required
+             autocomplete="username" value="{{ current_user.email }}">
+    </div>
+  </div>
+  <p class="legenda" style="margin:14px 0 0">
+    Trocar o e-mail muda também o login. Use o novo endereço na próxima entrada.
+  </p>
+  <div class="acoes"><button type="submit">Salvar dados</button></div>
+</form>
+
+<h2>Alterar senha</h2>
+<form method="post" class="cartao">
+  <input type="hidden" name="acao" value="senha">
+  <div class="grade">
+    <div class="campo">
+      <label for="senha_atual">Senha atual</label>
+      <input id="senha_atual" name="senha_atual" type="password" required
+             autocomplete="current-password">
+    </div>
+    <div class="campo">
+      <label for="nova_senha">Nova senha</label>
+      <input id="nova_senha" name="nova_senha" type="password" required
+             minlength="8" autocomplete="new-password">
+    </div>
+    <div class="campo">
+      <label for="confirmacao">Repita a nova senha</label>
+      <input id="confirmacao" name="confirmacao" type="password" required
+             minlength="8" autocomplete="new-password">
+    </div>
+  </div>
+  <p class="legenda" style="margin:14px 0 0">
+    Mínimo de 8 caracteres. Prefira uma frase longa a uma palavra com números no fim.
+  </p>
+  <div class="acoes"><button type="submit">Alterar senha</button></div>
+</form>
+{% endblock %}

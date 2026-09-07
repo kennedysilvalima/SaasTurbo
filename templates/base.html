@@ -26,8 +26,15 @@
   {% endif %}
 
   <div class="rodape">
-    <strong>{{ current_user.nome }}</strong>
-    <a href="{{ url_for('logout') }}">Sair</a>
+    <a href="{{ url_for('perfil') }}" class="usuario {{ 'ativo' if request.endpoint == 'perfil' }}">
+      <span class="inicial">{{ current_user.nome[0]|upper }}</span>
+      <span class="nome">{{ current_user.nome }}</span>
+    </a>
+    <a href="{{ url_for('logout') }}" class="sair" title="Sair" aria-label="Sair">
+      <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+        <path fill="currentColor" d="M11 3H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6v-2H5V5h6V3Zm3.3 3.3-1.4 1.4L14.6 9H8v2h6.6l-1.7 1.7 1.4 1.4L18.4 10l-4.1-3.7Z"/>
+      </svg>
+    </a>
   </div>
 </nav>
 

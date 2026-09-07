@@ -907,6 +907,55 @@ FILTROS_SOLICITACAO = {
 }
 
 
+@app.route("/perfil", methods=["GET", "POST"])
+@login_required
+def perfil():
+    if request.method == "POST":
+        acao = request.form.get("acao")
+
+        if acao == "dados":
+            nome = request.form.get("nome", "").strip()
+            email = request.form.get("email", "").strip().lower()
+            ocupado = Usuario.query.filter(
+                Usuario.email == email, Usuario.id != current_user.id).first()
+
+            if not nome:
+                flash("Informe seu nome.", "erro")
+            elif ocupado:
+                flash("Este e-mail já está em uso por outro usuário.", "erro")
+            else:
+                current_user.nome = nome
+                current_user.email = email
+                db.session.commit()
+                flash("Dados atualizados.", "ok")
+
+        elif acao == "senha":
+            atual = request.form.get("senha_atual", "")
+            nova = request.form.get("nova_senha", "")
+            confirmacao = request.form.get("confirmacao", "")
+
+            if not current_user.conferir_senha(atual):
+                flash("A senha atual não confere.", "erro")
+            elif len(nova) < 8:
+                flash("A nova senha precisa ter ao menos 8 caracteres.", "erro")
+            elif nova != confirmacao:
+                flash("A confirmação não corresponde à nova senha.", "erro")
+            elif nova == atual:
+                flash("A nova senha precisa ser diferente da atual.", "erro")
+            else:
+                current_user.definir_senha(nova)
+                db.session.commit()
+                flash("Senha alterada.", "ok")
+
+        return redirect(url_for("perfil"))
+
+    lancadas = da_empresa(NotaFiscal).filter_by(criada_por_id=current_user.id).count()
+    baixadas = da_empresa(Titulo).filter_by(baixado_por_id=current_user.id).count()
+
+    return render_template("perfil.html", papeis=PAPEIS,
+                           lancadas=lancadas, baixadas=baixadas)
+
+
 def _data(valor):
     if not valor:
         return None
