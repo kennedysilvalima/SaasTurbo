@@ -640,8 +640,10 @@ def usuarios():
             flash(f"Usuário {novo.nome} cadastrado.", "ok")
         return redirect(url_for("usuarios"))
 
-    lista = da_empresa(Usuario).order_by(Usuario.nome).all()
-    return render_template("usuarios.html", usuarios=lista, papeis=PAPEIS)
+    lista = da_empresa(Usuario).order_by(Usuario.ativo.desc(), Usuario.nome).all()
+    historicos = {u.id: sum(_historico_do_usuario(u).values()) for u in lista}
+    return render_template("usuarios.html", usuarios=lista, papeis=PAPEIS,
+                           historicos=historicos)
 
 
 @app.route("/usuarios/<int:id_>/alternar", methods=["POST"])
@@ -678,6 +680,47 @@ PAPEIS = {
     Papel.OPERADOR: "Operador",
     Papel.LEITURA: "Somente leitura",
 }
+
+
+def _historico_do_usuario(usuario):
+    return {
+        "notas lançadas": da_empresa(NotaFiscal).filter_by(
+            criada_por_id=usuario.id).count(),
+        "notas canceladas": da_empresa(NotaFiscal).filter_by(
+            cancelada_por_id=usuario.id).count(),
+        "pagamentos registrados": da_empresa(Titulo).filter_by(
+            baixado_por_id=usuario.id).count(),
+        "solicitações abertas": da_empresa(SolicitacaoCancelamento).filter_by(
+            solicitante_id=usuario.id).count(),
+        "solicitações respondidas": da_empresa(SolicitacaoCancelamento).filter_by(
+            decidida_por_id=usuario.id).count(),
+    }
+
+
+@app.route("/usuarios/<int:id_>/excluir", methods=["POST"])
+@login_required
+@somente_admin
+def excluir_usuario(id_):
+    usuario = buscar_ou_404(Usuario, id_)
+
+    if usuario.id == current_user.id:
+        flash("Você não pode excluir o próprio cadastro.", "erro")
+        return redirect(url_for("usuarios"))
+
+    historico = {k: v for k, v in _historico_do_usuario(usuario).items() if v}
+    if historico:
+        resumo = ", ".join(f"{v} {k}" for k, v in historico.items())
+        flash(
+            f"{usuario.nome} não pode ser excluído porque tem histórico no sistema "
+            f"({resumo}). Bloqueie o acesso para impedir a entrada sem apagar os "
+            f"registros.", "erro")
+        return redirect(url_for("usuarios"))
+
+    nome = usuario.nome
+    db.session.delete(usuario)
+    db.session.commit()
+    flash(f"Cadastro de {nome} excluído.", "ok")
+    return redirect(url_for("usuarios"))
 
 
 def _consulta_relatorio():
