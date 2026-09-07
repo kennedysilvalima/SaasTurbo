@@ -57,6 +57,7 @@ estorne o pagamento antes, se precisar corrigir.</p>
   </div>
 
   <h2>Parcelas</h2>
+  <div class="quadro">
   <table>
     <tr><th>Nº</th><th>Vencimento</th><th class="valor">Valor</th><th>Linha digitável</th><th>Situação</th></tr>
     {% for t in nota.titulos %}
@@ -85,6 +86,7 @@ estorne o pagamento antes, se precisar corrigir.</p>
     </tr>
     {% endfor %}
   </table>
+  </div>
 
   <div class="acoes">
     <button type="submit">Salvar alterações</button>

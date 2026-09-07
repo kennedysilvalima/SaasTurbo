@@ -30,6 +30,7 @@
 
 {% if sem_parcelas %}
 <h2>Notas sem parcelas lançadas</h2>
+<div class="quadro">
 <table>
   <tr><th>Nota</th><th>Fornecedor</th><th class="valor">Valor</th></tr>
   {% for nota in sem_parcelas %}
@@ -40,10 +41,12 @@
   </tr>
   {% endfor %}
 </table>
+</div>
 {% endif %}
 
 <h2>Atrasos mais antigos</h2>
 {% if urgentes %}
+<div class="quadro">
 <table>
   <tr>
     <th>Vencimento</th><th>Atraso</th><th>Fornecedor</th>
@@ -59,6 +62,7 @@
   </tr>
   {% endfor %}
 </table>
+</div>
 {% else %}
 <p class="vazio">Nenhum título vencido em aberto.</p>
 {% endif %}

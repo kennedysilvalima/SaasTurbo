@@ -21,6 +21,7 @@
 
 <h2>Cadastrados</h2>
 {% if centros %}
+<div class="quadro">
 <table>
   <tr><th>Nome</th><th>Descrição</th><th>Situação</th><th></th></tr>
   {% for c in centros %}
@@ -33,12 +34,13 @@
     </td>
     <td>
       <form method="post" action="{{ url_for('alternar_centro', id_=c.id) }}">
-        <button type="submit" class="discreto">{{ 'Desativar' if c.ativo else 'Reativar' }}</button>
+        <button type="submit" class="discreto mini">{{ 'Desativar' if c.ativo else 'Reativar' }}</button>
       </form>
     </td>
   </tr>
   {% endfor %}
 </table>
+</div>
 {% else %}
 <p class="vazio">Nenhum centro de custo cadastrado.</p>
 {% endif %}

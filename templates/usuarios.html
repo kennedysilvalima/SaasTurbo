@@ -33,6 +33,7 @@
 </form>
 
 <h2>Com acesso</h2>
+<div class="quadro">
 <table>
   <tr><th>Nome</th><th>E-mail</th><th>Permissão</th><th>Situação</th><th>Nova senha</th><th></th></tr>
   {% for u in usuarios %}
@@ -47,17 +48,18 @@
     <td>
       <form method="post" action="{{ url_for('trocar_senha', id_=u.id) }}" class="em-linha">
         <input name="senha" type="password" minlength="8" placeholder="mínimo 8" autocomplete="new-password">
-        <button type="submit" class="discreto">Alterar</button>
+        <button type="submit" class="discreto mini">Alterar</button>
       </form>
     </td>
     <td>
       {% if u.id != current_user.id %}
       <form method="post" action="{{ url_for('alternar_usuario', id_=u.id) }}">
-        <button type="submit" class="discreto">{{ 'Bloquear' if u.ativo else 'Liberar' }}</button>
+        <button type="submit" class="discreto mini">{{ 'Bloquear' if u.ativo else 'Liberar' }}</button>
       </form>
       {% endif %}
     </td>
   </tr>
   {% endfor %}
 </table>
+</div>
 {% endblock %}

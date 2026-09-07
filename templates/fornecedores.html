@@ -33,6 +33,7 @@
 
 <h2>Cadastrados</h2>
 {% if fornecedores %}
+<div class="quadro">
 <table>
   <tr><th>Razão social</th><th>CNPJ</th><th>Contato</th><th>Telefone</th><th>Situação</th><th></th></tr>
   {% for f in fornecedores %}
@@ -48,12 +49,13 @@
     <td class="em-linha">
       <a href="{{ url_for('editar_fornecedor', id_=f.id) }}">Editar</a>
       <form method="post" action="{{ url_for('alternar_fornecedor', id_=f.id) }}">
-        <button type="submit" class="discreto">{{ 'Desativar' if f.ativo else 'Reativar' }}</button>
+        <button type="submit" class="discreto mini">{{ 'Desativar' if f.ativo else 'Reativar' }}</button>
       </form>
     </td>
   </tr>
   {% endfor %}
 </table>
+</div>
 {% else %}
 <p class="vazio">Nenhum fornecedor cadastrado ainda.</p>
 {% endif %}

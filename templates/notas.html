@@ -16,6 +16,7 @@
 </form>
 
 {% if notas %}
+<div class="quadro">
 <table>
   <tr>
     <th>Emissão</th><th>Número</th><th>Fornecedor</th>
@@ -47,6 +48,7 @@
   </tr>
   {% endfor %}
 </table>
+</div>
 {% include "_paginacao.html" %}
 {% else %}
 <p class="vazio">Nenhuma nota encontrada.</p>

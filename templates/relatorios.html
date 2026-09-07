@@ -65,16 +65,19 @@
 
 {% if por_fornecedor %}
 <h2>Por fornecedor</h2>
+<div class="quadro">
 <table>
   <tr><th>Fornecedor</th><th class="valor">Total</th></tr>
   {% for nome, valor in por_fornecedor %}
   <tr><td>{{ nome }}</td><td class="valor">{{ valor|moeda }}</td></tr>
   {% endfor %}
 </table>
+</div>
 {% endif %}
 
 <h2>Detalhamento</h2>
 {% if linhas %}
+<div class="quadro">
 <table>
   <tr>
     <th>Vencimento</th><th>Fornecedor</th><th>Nota</th><th>Centro de custo</th>
@@ -92,6 +95,7 @@
   </tr>
   {% endfor %}
 </table>
+</div>
 {% else %}
 <p class="vazio">Nenhum título encontrado com esses filtros.</p>
 {% endif %}
