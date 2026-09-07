@@ -1,3 +1,16 @@
+"""
+Extratores de dados de PDF - DANFE e boleto bancario.
+
+Principio: nao depender de layout. Tudo que sai daqui vem de formato definido
+por norma - chave de acesso de 44 digitos, linha digitavel de 47 digitos - ou
+da posicao relativa dentro da tabela do DANFE. Emissor diferente nao quebra.
+
+Nada aqui e salvo direto no banco. O resultado preenche o formulario e o
+usuario confere ao lado do PDF antes de confirmar.
+
+Requer: pip install pdfplumber
+"""
+
 import re
 from datetime import date, timedelta
 from decimal import Decimal
@@ -178,6 +191,39 @@ def extrair_emissao(caminho):
 
 
 # ---------------------------------------------------------------------------
+# Emitente / beneficiario
+# ---------------------------------------------------------------------------
+
+def extrair_emitente(texto):
+    """O canhoto do DANFE comeca com "Recebemos de <NOME> CNPJ <numero>".
+
+    E a linha mais confiavel do documento para pegar o fornecedor, porque o
+    texto e definido pelo layout oficial e nao pelo emissor.
+    """
+    m = re.search(
+        r"Recebemos de\s+(.+?)\s+CNPJ\s*:?\s*([\d./-]{14,20})", texto, re.IGNORECASE
+    )
+    if m:
+        return {"razao_social": m.group(1).strip(), "cnpj": so_digitos(m.group(2))}
+    return {}
+
+
+def extrair_beneficiario(texto):
+    """No boleto, o beneficiario e quem vai receber - ou seja, o fornecedor."""
+    m = re.search(r"Benefici\u00e1rio\s*\n?(.+?)\s+(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto)
+    if m:
+        return {"razao_social": m.group(1).strip(), "cnpj": so_digitos(m.group(2))}
+    m = re.search(r"([A-Z][A-Z\s.&-]{8,}?(?:LTDA|S/A|S\.A\.|ME|EIRELI))\s+(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto)
+    if m:
+        return {"razao_social": m.group(1).strip(), "cnpj": so_digitos(m.group(2))}
+    return {}
+
+
+def so_digitos(valor):
+    return "".join(c for c in (valor or "") if c.isdigit())
+
+
+# ---------------------------------------------------------------------------
 # Conversao
 # ---------------------------------------------------------------------------
 
@@ -214,6 +260,7 @@ def analisar(caminho):
             "tipo": "danfe",
             "chave_acesso": chave,
             **dados_da_chave(chave),
+            "fornecedor": extrair_emitente(texto),
             "data_emissao": extrair_emissao(caminho),
             "valor_total": extrair_valor_total(caminho),
             "duplicatas": duplicatas,
@@ -222,6 +269,11 @@ def analisar(caminho):
 
     linha = extrair_linha_digitavel(texto)
     if linha:
-        return {"tipo": "boleto", "linha_digitavel": linha, **dados_do_boleto(linha)}
+        return {
+            "tipo": "boleto",
+            "linha_digitavel": linha,
+            "fornecedor": extrair_beneficiario(texto),
+            **dados_do_boleto(linha),
+        }
 
     return {"tipo": "desconhecido", "aviso": "nem DANFE nem boleto reconhecido"}

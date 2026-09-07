@@ -1,3 +1,7 @@
+/* Contas a pagar - folha de estilo unica.
+   Aparencia de livro-caixa: densa, alinhada, sem enfeite.
+   Numero e o conteudo principal, entao tudo se organiza em torno dele. */
+
 :root {
   --tinta: #17212b;
   --tinta-fraca: #5c6b7a;
@@ -234,3 +238,19 @@ body.entrada { display: block; background: var(--tinta); }
   main { padding: 18px 14px 40px; }
   table { font-size: 14px; }
 }
+
+/* ---------- area de arrastar arquivo ---------- */
+
+.solta {
+  border: 2px dashed var(--linha);
+  background: var(--superficie);
+  padding: 40px 20px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.solta.ativa { border-color: var(--marca); background: var(--marca-clara); }
+.solta p { margin: 4px 0; }
+
+#parcelas input { width: 100%; }
+#parcelas td { padding: 5px 8px; }

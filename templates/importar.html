@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block titulo %}Importar PDF{% endblock %}
+
+{% block conteudo %}
+<h1>Importar nota e boletos</h1>
+<p class="legenda">Arraste os PDFs recebidos do fornecedor. Os arquivos são lidos e descartados — só os dados ficam guardados.</p>
+
+<div id="area" class="solta">
+  <p><strong>Arraste os PDFs aqui</strong></p>
+  <p class="legenda">ou <button type="button" id="escolher" class="discreto">escolher arquivos</button></p>
+  <input type="file" id="arquivos" accept="application/pdf" multiple hidden>
+</div>
+
+<p id="situacao" class="legenda" hidden></p>
+<div id="avisos"></div>
+
+<form method="post" action="{{ url_for('salvar_importada') }}" id="formulario" class="cartao" hidden>
+  <h2>Confira antes de lançar</h2>
+
+  <div class="grade">
+    <div class="campo largo">
+      <label for="fornecedor_id">Fornecedor</label>
+      <select id="fornecedor_id" name="fornecedor_id">
+        <option value="">— cadastrar novo —</option>
+        {% for f in fornecedores %}
+          <option value="{{ f.id }}">{{ f.razao_social }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="campo" id="bloco-razao" hidden>
+      <label for="nova_razao_social">Razão social do novo fornecedor</label>
+      <input id="nova_razao_social" name="nova_razao_social">
+    </div>
+    <div class="campo" id="bloco-cnpj" hidden>
+      <label for="novo_cnpj">CNPJ</label>
+      <input id="novo_cnpj" name="novo_cnpj" inputmode="numeric">
+    </div>
+
+    <div class="campo">
+      <label for="numero">Número da nota</label>
+      <input id="numero" name="numero" required>
+    </div>
+    <div class="campo">
+      <label for="serie">Série</label>
+      <input id="serie" name="serie">
+    </div>
+    <div class="campo">
+      <label for="data_emissao">Emissão</label>
+      <input id="data_emissao" name="data_emissao" type="date" required>
+    </div>
+    <div class="campo">
+      <label for="valor_total">Valor total</label>
+      <input id="valor_total" name="valor_total" inputmode="decimal" required>
+    </div>
+    <div class="campo largo">
+      <label for="chave_acesso">Chave de acesso</label>
+      <input id="chave_acesso" name="chave_acesso" inputmode="numeric">
+    </div>
+    <div class="campo">
+      <label for="tipo">Tipo</label>
+      <select id="tipo" name="tipo">
+        <option value="produto">Produto</option>
+        <option value="servico">Serviço</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label for="centro_custo">Centro de custo</label>
+      <input id="centro_custo" name="centro_custo">
+    </div>
+  </div>
+
+  <h2>Parcelas</h2>
+  <table id="parcelas">
+    <tr><th>Vencimento</th><th class="valor">Valor</th><th>Linha digitável</th><th></th></tr>
+  </table>
+  <p class="acoes">
+    <button type="button" id="adicionar" class="discreto">Adicionar parcela</button>
+    <span id="conferencia" class="legenda"></span>
+  </p>
+
+  <div class="acoes">
+    <button type="submit">Lançar nota</button>
+    <a href="{{ url_for('notas') }}"><button type="button" class="discreto">Descartar</button></a>
+  </div>
+</form>
+
+<script>
+const area = document.getElementById('area');
+const entrada = document.getElementById('arquivos');
+const formulario = document.getElementById('formulario');
+const situacao = document.getElementById('situacao');
+const tabela = document.getElementById('parcelas');
+
+document.getElementById('escolher').onclick = () => entrada.click();
+entrada.onchange = () => enviar(entrada.files);
+
+['dragenter', 'dragover'].forEach(evento =>
+  area.addEventListener(evento, e => { e.preventDefault(); area.classList.add('ativa'); }));
+['dragleave', 'drop'].forEach(evento =>
+  area.addEventListener(evento, e => { e.preventDefault(); area.classList.remove('ativa'); }));
+area.addEventListener('drop', e => enviar(e.dataTransfer.files));
+
+async function enviar(arquivos) {
+  if (!arquivos.length) return;
+  const dados = new FormData();
+  for (const arquivo of arquivos) dados.append('arquivos', arquivo);
+
+  situacao.hidden = false;
+  situacao.textContent = `Lendo ${arquivos.length} arquivo(s)…`;
+
+  try {
+    const resposta = await fetch('{{ url_for("ler_pdfs") }}', { method: 'POST', body: dados });
+    if (!resposta.ok) throw new Error(resposta.status);
+    preencher(await resposta.json());
+    situacao.textContent = 'Leitura concluída. Confira os campos antes de lançar.';
+  } catch (erro) {
+    situacao.textContent = 'Não foi possível ler os arquivos. Lance a nota manualmente.';
+  }
+}
+
+function preencher(dados) {
+  const nota = dados.nota || {};
+  for (const campo of ['numero', 'serie', 'chave_acesso', 'data_emissao', 'valor_total']) {
+    if (nota[campo]) document.getElementById(campo).value = nota[campo];
+  }
+
+  const forn = dados.fornecedor || {};
+  const seletor = document.getElementById('fornecedor_id');
+  if (forn.id) {
+    seletor.value = forn.id;
+  } else {
+    seletor.value = '';
+    document.getElementById('nova_razao_social').value = forn.razao_social || '';
+    document.getElementById('novo_cnpj').value = forn.cnpj || '';
+  }
+  alternarNovoFornecedor();
+
+  tabela.querySelectorAll('tr:not(:first-child)').forEach(l => l.remove());
+  (dados.parcelas || []).forEach(p => adicionarLinha(p));
+  if (!(dados.parcelas || []).length) adicionarLinha({});
+
+  const caixa = document.getElementById('avisos');
+  caixa.innerHTML = '';
+  (dados.avisos || []).forEach(texto => {
+    const p = document.createElement('p');
+    p.className = 'aviso erro';
+    p.textContent = texto;
+    caixa.appendChild(p);
+  });
+
+  formulario.hidden = false;
+  conferir();
+}
+
+function adicionarLinha(p) {
+  const linha = tabela.insertRow(-1);
+  linha.innerHTML = `
+    <td><input type="date" name="parcela_vencimento" value="${p.vencimento || ''}"></td>
+    <td class="valor"><input inputmode="decimal" name="parcela_valor" value="${p.valor || ''}"></td>
+    <td><input name="parcela_linha" value="${p.linha_digitavel || ''}" placeholder="opcional"></td>
+    <td><button type="button" class="discreto remover">Remover</button></td>`;
+  linha.querySelector('.remover').onclick = () => { linha.remove(); conferir(); };
+  linha.querySelectorAll('input').forEach(i => i.addEventListener('input', conferir));
+}
+
+document.getElementById('adicionar').onclick = () => { adicionarLinha({}); conferir(); };
+document.getElementById('fornecedor_id').onchange = alternarNovoFornecedor;
+document.getElementById('valor_total').addEventListener('input', conferir);
+
+function alternarNovoFornecedor() {
+  const novo = !document.getElementById('fornecedor_id').value;
+  document.getElementById('bloco-razao').hidden = !novo;
+  document.getElementById('bloco-cnpj').hidden = !novo;
+}
+
+function conferir() {
+  const numero = t => parseFloat((t || '0').replace(/\./g, '').replace(',', '.')) || 0;
+  const soma = [...tabela.querySelectorAll('[name=parcela_valor]')]
+    .reduce((acc, i) => acc + numero(i.value), 0);
+  const total = numero(document.getElementById('valor_total').value);
+  const rotulo = document.getElementById('conferencia');
+
+  if (!total) { rotulo.textContent = ''; return; }
+  const diferenca = Math.abs(total - soma);
+  rotulo.textContent = diferenca <= 0.02
+    ? `Parcelas fecham com o total (${soma.toFixed(2)}).`
+    : `Atenção: parcelas somam ${soma.toFixed(2)} e a nota é ${total.toFixed(2)}.`;
+  rotulo.style.color = diferenca <= 0.02 ? 'var(--pago)' : 'var(--vencido)';
+}
+</script>
+{% endblock %}
