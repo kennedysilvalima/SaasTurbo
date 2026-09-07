@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titulo %}Painel{% endblock %}
+
+{% block conteudo %}
+<h1>Painel</h1>
+<p class="legenda">Situação em {{ hoje|data_br }}.</p>
+
+<dl class="resumo">
+  <div class="alerta">
+    <dt>Vencido e não pago</dt>
+    <dd>{{ total_vencido|moeda }}</dd>
+    <small>{{ qtd_vencido }} título{{ 's' if qtd_vencido != 1 }}</small>
+  </div>
+  <div>
+    <dt>Vence hoje</dt>
+    <dd>{{ total_hoje|moeda }}</dd>
+    <small>{{ qtd_hoje }} título{{ 's' if qtd_hoje != 1 }}</small>
+  </div>
+  <div>
+    <dt>Próximos 7 dias</dt>
+    <dd>{{ total_semana|moeda }}</dd>
+    <small>{{ qtd_semana }} título{{ 's' if qtd_semana != 1 }}</small>
+  </div>
+  <div class="quitado">
+    <dt>Pago neste mês</dt>
+    <dd>{{ total_pago_mes|moeda }}</dd>
+    <small>a partir do dia 1</small>
+  </div>
+</dl>
+
+{% if sem_parcelas %}
+<h2>Notas sem parcelas lançadas</h2>
+<table>
+  <tr><th>Nota</th><th>Fornecedor</th><th class="valor">Valor</th></tr>
+  {% for nota in sem_parcelas %}
+  <tr>
+    <td>{{ nota.numero }}</td>
+    <td>{{ nota.fornecedor.razao_social }}</td>
+    <td class="valor">{{ nota.valor_total|moeda }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Atrasos mais antigos</h2>
+{% if urgentes %}
+<table>
+  <tr>
+    <th>Vencimento</th><th>Atraso</th><th>Fornecedor</th>
+    <th>Nota</th><th class="valor">Valor</th>
+  </tr>
+  {% for t in urgentes %}
+  <tr>
+    <td>{{ t.vencimento|data_br }}</td>
+    <td><span class="marca-situacao m-vencido">{{ t.dias_atraso }} dia{{ 's' if t.dias_atraso != 1 }}</span></td>
+    <td>{{ t.nota.fornecedor.razao_social }}</td>
+    <td>{{ t.nota.numero }}{% if t.total_parcelas > 1 %} — {{ t.numero_parcela }}/{{ t.total_parcelas }}{% endif %}</td>
+    <td class="valor">{{ t.valor|moeda }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="vazio">Nenhum título vencido em aberto.</p>
+{% endif %}
+{% endblock %}

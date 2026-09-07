@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Contas a pagar{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+<nav>
+  <div class="marca">Contas a pagar</div>
+  <a href="{{ url_for('painel') }}" class="{{ 'ativo' if request.endpoint == 'painel' }}">Painel</a>
+  <a href="{{ url_for('titulos') }}" class="{{ 'ativo' if request.endpoint == 'titulos' }}">Títulos</a>
+  <a href="{{ url_for('notas') }}" class="{{ 'ativo' if request.endpoint in ['notas','nova_nota'] }}">Notas fiscais</a>
+  <a href="{{ url_for('fornecedores') }}" class="{{ 'ativo' if request.endpoint == 'fornecedores' }}">Fornecedores</a>
+  <div class="rodape">
+    {{ current_user.nome }}<br>
+    <a href="{{ url_for('logout') }}">Sair</a>
+  </div>
+</nav>
+
+<main>
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% for categoria, texto in mensagens %}
+      <p class="aviso {{ categoria }}">{{ texto }}</p>
+    {% endfor %}
+  {% endwith %}
+  {% block conteudo %}{% endblock %}
+</main>
+</body>
+</html>

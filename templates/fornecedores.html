@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Fornecedores{% endblock %}
+
+{% block conteudo %}
+<h1>Fornecedores</h1>
+<p class="legenda">Quem emite as notas que vocês pagam.</p>
+
+<form method="post" class="cartao">
+  <div class="grade">
+    <div class="campo">
+      <label for="razao_social">Razão social</label>
+      <input id="razao_social" name="razao_social" required>
+    </div>
+    <div class="campo">
+      <label for="cnpj">CNPJ</label>
+      <input id="cnpj" name="cnpj" inputmode="numeric" required>
+    </div>
+    <div class="campo">
+      <label for="contato">Contato</label>
+      <input id="contato" name="contato">
+    </div>
+    <div class="campo">
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email">
+    </div>
+    <div class="campo">
+      <label for="telefone">Telefone</label>
+      <input id="telefone" name="telefone">
+    </div>
+  </div>
+  <div class="acoes"><button type="submit">Cadastrar fornecedor</button></div>
+</form>
+
+<h2>Cadastrados</h2>
+{% if fornecedores %}
+<table>
+  <tr><th>Razão social</th><th>CNPJ</th><th>Contato</th><th>Telefone</th></tr>
+  {% for f in fornecedores %}
+  <tr>
+    <td>{{ f.razao_social }}</td>
+    <td class="valor" style="text-align:left">{{ f.cnpj }}</td>
+    <td>{{ f.contato or '—' }}</td>
+    <td>{{ f.telefone or '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="vazio">Nenhum fornecedor cadastrado ainda.</p>
+{% endif %}
+{% endblock %}

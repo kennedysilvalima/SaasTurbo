@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Notas fiscais{% endblock %}
+
+{% block conteudo %}
+<h1>Notas fiscais</h1>
+<p class="legenda">Documentos recebidos dos fornecedores.</p>
+<p class="acoes"><a href="{{ url_for('nova_nota') }}"><button type="button">Lançar nota</button></a></p>
+
+{% if notas %}
+<table>
+  <tr>
+    <th>Emissão</th><th>Número</th><th>Fornecedor</th>
+    <th class="valor">Valor</th><th>Parcelas</th><th>Situação</th>
+  </tr>
+  {% for n in notas %}
+  <tr>
+    <td>{{ n.data_emissao|data_br }}</td>
+    <td>{{ n.numero }}{% if n.serie %}/{{ n.serie }}{% endif %}</td>
+    <td>{{ n.fornecedor.razao_social }}</td>
+    <td class="valor">{{ n.valor_total|moeda }}</td>
+    <td>
+      {% if n.sem_titulos %}
+        <span class="marca-situacao m-hoje">Sem parcelas</span>
+      {% elif not n.fecha %}
+        <span class="marca-situacao m-vencido">Diferença de {{ n.diferenca|moeda }}</span>
+      {% else %}
+        {{ n.titulos|length }}
+      {% endif %}
+    </td>
+    <td>
+      {% if n.status == 'cancelada' %}
+        <span class="marca-situacao m-cancelado">Cancelada</span>
+      {% else %}
+        <span class="marca-situacao m-aberto">Lançada</span>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="vazio">Nenhuma nota lançada. Comece por “Lançar nota”.</p>
+{% endif %}
+{% endblock %}

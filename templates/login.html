@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body class="entrada">
+  <div class="caixa">
+    <h1>Contas a pagar</h1>
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% for categoria, texto in mensagens %}
+        <p class="aviso {{ categoria }}">{{ texto }}</p>
+      {% endfor %}
+    {% endwith %}
+    <form method="post">
+      <div class="campo">
+        <label for="email">E-mail</label>
+        <input id="email" name="email" type="email" required autofocus autocomplete="username">
+      </div>
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input id="senha" name="senha" type="password" required autocomplete="current-password">
+      </div>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

@@ -11,6 +11,7 @@ Regras estruturais que valem para o arquivo inteiro:
 from datetime import date, datetime
 from decimal import Decimal
 
+from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -62,7 +63,7 @@ class Empresa(db.Model):
         return f"<Empresa {self.id} {self.razao_social}>"
 
 
-class Usuario(db.Model):
+class Usuario(UserMixin, db.Model):
     __tablename__ = "usuario"
     __table_args__ = (
         db.UniqueConstraint("empresa_id", "email", name="uq_usuario_email_empresa"),

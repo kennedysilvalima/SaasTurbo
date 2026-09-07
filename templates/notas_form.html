@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block titulo %}Lançar nota{% endblock %}
+
+{% block conteudo %}
+<h1>Lançar nota</h1>
+<p class="legenda">As parcelas são geradas a partir do valor total e do primeiro vencimento.</p>
+
+<form method="post" class="cartao">
+  <div class="grade">
+    <div class="campo largo">
+      <label for="fornecedor_id">Fornecedor</label>
+      <select id="fornecedor_id" name="fornecedor_id" required>
+        <option value="">Selecione</option>
+        {% for f in fornecedores %}
+          <option value="{{ f.id }}" {{ 'selected' if dados.get('fornecedor_id')|string == f.id|string }}>{{ f.razao_social }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="campo">
+      <label for="numero">Número da nota</label>
+      <input id="numero" name="numero" required value="{{ dados.get('numero', '') }}">
+    </div>
+
+    <div class="campo">
+      <label for="serie">Série</label>
+      <input id="serie" name="serie" value="{{ dados.get('serie', '') }}">
+    </div>
+
+    <div class="campo">
+      <label for="data_emissao">Emissão</label>
+      <input id="data_emissao" name="data_emissao" type="date" required value="{{ dados.get('data_emissao', '') }}">
+    </div>
+
+    <div class="campo">
+      <label for="valor_total">Valor total</label>
+      <input id="valor_total" name="valor_total" inputmode="decimal" required
+             placeholder="0,00" value="{{ dados.get('valor_total', '') }}">
+    </div>
+
+    <div class="campo largo">
+      <label for="chave_acesso">Chave de acesso (44 dígitos, se houver)</label>
+      <input id="chave_acesso" name="chave_acesso" inputmode="numeric" value="{{ dados.get('chave_acesso', '') }}">
+    </div>
+
+    <div class="campo">
+      <label for="tipo">Tipo</label>
+      <select id="tipo" name="tipo">
+        <option value="produto">Produto</option>
+        <option value="servico">Serviço</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label for="centro_custo">Centro de custo</label>
+      <input id="centro_custo" name="centro_custo" value="{{ dados.get('centro_custo', '') }}">
+    </div>
+  </div>
+
+  <h2>Parcelas</h2>
+  <div class="grade">
+    <div class="campo">
+      <label for="qtd_parcelas">Quantidade</label>
+      <input id="qtd_parcelas" name="qtd_parcelas" type="number" min="1" max="60" value="1">
+    </div>
+    <div class="campo">
+      <label for="primeiro_vencimento">Primeiro vencimento</label>
+      <input id="primeiro_vencimento" name="primeiro_vencimento" type="date" required>
+    </div>
+    <div class="campo">
+      <label for="intervalo">Intervalo entre parcelas (dias)</label>
+      <input id="intervalo" name="intervalo" type="number" min="1" value="30">
+    </div>
+    <div class="campo">
+      <label for="forma_pagamento">Forma de pagamento</label>
+      <select id="forma_pagamento" name="forma_pagamento">
+        <option value="boleto">Boleto</option>
+        <option value="pix">Pix</option>
+        <option value="transferencia">Transferência</option>
+        <option value="debito">Débito em conta</option>
+      </select>
+    </div>
+    <div class="campo largo">
+      <label for="descricao">Observação</label>
+      <textarea id="descricao" name="descricao" rows="2">{{ dados.get('descricao', '') }}</textarea>
+    </div>
+  </div>
+
+  <div class="acoes">
+    <button type="submit">Lançar nota</button>
+    <a href="{{ url_for('notas') }}"><button type="button" class="discreto">Cancelar</button></a>
+  </div>
+</form>
+{% endblock %}

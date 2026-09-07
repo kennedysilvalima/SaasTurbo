@@ -1,0 +1,240 @@
+/* Contas a pagar - folha de estilo unica.
+   Aparencia de livro-caixa: densa, alinhada, sem enfeite.
+   Numero e o conteudo principal, entao tudo se organiza em torno dele. */
+
+:root {
+  --tinta: #17212b;
+  --tinta-fraca: #5c6b7a;
+  --papel: #eef1f4;
+  --superficie: #ffffff;
+  --linha: #d7dde3;
+  --marca: #1f5666;
+  --marca-clara: #e4eef1;
+  --vencido: #9e2b21;
+  --pago: #26604a;
+  --atencao: #8a5300;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  display: flex;
+  min-height: 100vh;
+  background: var(--papel);
+  color: var(--tinta);
+  font: 15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Numeros de dinheiro alinham por coluna: largura fixa por digito. */
+.valor, td.valor, .numero-grande {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---------- navegacao ---------- */
+
+nav {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--tinta);
+  color: #c8d2dc;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 0;
+}
+
+nav .marca {
+  padding: 0 22px 22px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+nav a {
+  padding: 9px 22px;
+  color: #c8d2dc;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+
+nav a:hover { background: #1f2c39; color: #fff; }
+
+nav a.ativo {
+  background: #1f2c39;
+  color: #fff;
+  border-left-color: var(--marca);
+}
+
+nav .rodape {
+  margin-top: auto;
+  padding: 18px 22px 0;
+  border-top: 1px solid #2a3846;
+  font-size: 13px;
+  color: #8b99a8;
+}
+
+nav .rodape a { padding: 6px 0; display: inline-block; }
+
+/* ---------- conteudo ---------- */
+
+main { flex: 1; padding: 28px 34px 60px; max-width: 1180px; }
+
+h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 16px; font-weight: 600; margin: 32px 0 10px; }
+.legenda { color: var(--tinta-fraca); margin: 0 0 22px; }
+
+/* ---------- resumo do painel ---------- */
+
+.resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1px;
+  background: var(--linha);
+  border: 1px solid var(--linha);
+}
+
+.resumo div { background: var(--superficie); padding: 16px 18px; }
+.resumo dt { color: var(--tinta-fraca); font-size: 14px; margin-bottom: 6px; }
+
+.resumo dd {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.resumo small { display: block; color: var(--tinta-fraca); font-size: 13px; margin-top: 4px; }
+.resumo .alerta dd { color: var(--vencido); }
+.resumo .quitado dd { color: var(--pago); }
+
+/* ---------- tabelas ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+}
+
+th {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tinta-fraca);
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--linha);
+  background: #f8fafb;
+}
+
+th.valor { text-align: right; }
+td { padding: 9px 12px; border-bottom: 1px solid #eef1f4; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #f8fafb; }
+
+.vazio { padding: 34px; text-align: center; color: var(--tinta-fraca); background: var(--superficie); border: 1px solid var(--linha); }
+
+/* ---------- marcadores de situacao ---------- */
+
+.marca-situacao {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 2px;
+  font-size: 12.5px;
+  border: 1px solid;
+}
+
+.m-vencido { color: var(--vencido); border-color: #e3bab5; background: #fbf0ef; }
+.m-hoje { color: var(--atencao); border-color: #e6d2a8; background: #fdf7ea; }
+.m-aberto { color: var(--tinta-fraca); border-color: var(--linha); background: #f6f8f9; }
+.m-pago { color: var(--pago); border-color: #b6d3c6; background: #eef6f2; }
+.m-cancelado { color: var(--tinta-fraca); border-color: var(--linha); text-decoration: line-through; }
+
+/* ---------- filtros ---------- */
+
+.filtros { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+
+.filtros a {
+  padding: 5px 12px;
+  border: 1px solid var(--linha);
+  background: var(--superficie);
+  color: var(--tinta);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.filtros a.ativo { background: var(--marca); border-color: var(--marca); color: #fff; }
+
+/* ---------- formularios ---------- */
+
+.cartao { background: var(--superficie); border: 1px solid var(--linha); padding: 22px; }
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.campo { display: flex; flex-direction: column; }
+.campo.largo { grid-column: 1 / -1; }
+label { font-size: 13.5px; color: var(--tinta-fraca); margin-bottom: 4px; }
+
+input, select, textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--linha);
+  background: #fff;
+  font: inherit;
+  color: var(--tinta);
+  border-radius: 2px;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--marca);
+  outline-offset: -1px;
+  border-color: var(--marca);
+}
+
+input[type="number"], input[inputmode="decimal"] { font-variant-numeric: tabular-nums; text-align: right; }
+
+button {
+  padding: 8px 16px;
+  background: var(--marca);
+  color: #fff;
+  border: 1px solid var(--marca);
+  font: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+button:hover { background: #17444f; }
+button.discreto { background: transparent; color: var(--marca); border-color: var(--linha); }
+button.discreto:hover { background: var(--marca-clara); }
+.acoes { margin-top: 18px; display: flex; gap: 10px; align-items: center; }
+
+/* ---------- avisos ---------- */
+
+.aviso { padding: 11px 14px; margin-bottom: 18px; border: 1px solid; }
+.aviso.ok { background: #eef6f2; border-color: #b6d3c6; color: var(--pago); }
+.aviso.erro { background: #fbf0ef; border-color: #e3bab5; color: var(--vencido); }
+
+/* ---------- login ---------- */
+
+body.entrada { display: block; background: var(--tinta); }
+
+.entrada .caixa {
+  max-width: 380px;
+  margin: 14vh auto;
+  background: var(--superficie);
+  padding: 34px;
+  border-radius: 3px;
+}
+
+.entrada h1 { margin-bottom: 22px; }
+.entrada .campo { margin-bottom: 14px; }
+.entrada button { width: 100%; padding: 10px; }
+
+@media (max-width: 760px) {
+  body { flex-direction: column; }
+  nav { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 12px; gap: 4px; }
+  nav .marca { padding: 0 12px; width: 100%; }
+  nav .rodape { margin: 0; padding: 0 12px; border: none; }
+  main { padding: 18px 14px 40px; }
+  table { font-size: 14px; }
+}

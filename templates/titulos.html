@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}Títulos{% endblock %}
+
+{% block conteudo %}
+<h1>Títulos</h1>
+<p class="legenda">Boletos e demais pagamentos vinculados às notas.</p>
+
+<div class="filtros">
+  {% for chave, rotulo in filtros.items() %}
+    <a href="{{ url_for('titulos', filtro=chave) }}" class="{{ 'ativo' if filtro == chave }}">{{ rotulo }}</a>
+  {% endfor %}
+</div>
+
+{% if titulos %}
+<table>
+  <tr>
+    <th>Vencimento</th><th>Situação</th><th>Fornecedor</th><th>Nota</th>
+    <th class="valor">Valor</th><th class="valor">Pago</th><th></th>
+  </tr>
+  {% for t in titulos %}
+  <tr>
+    <td>{{ t.vencimento|data_br }}</td>
+    <td>
+      {% if t.status == 'pago' %}
+        <span class="marca-situacao m-pago">Pago em {{ t.data_pagamento|data_br }}</span>
+      {% elif t.status == 'cancelado' %}
+        <span class="marca-situacao m-cancelado">Cancelado</span>
+      {% elif t.vencido %}
+        <span class="marca-situacao m-vencido">{{ t.dias_atraso }} dia{{ 's' if t.dias_atraso != 1 }} de atraso</span>
+      {% elif t.vencimento == hoje %}
+        <span class="marca-situacao m-hoje">Vence hoje</span>
+      {% else %}
+        <span class="marca-situacao m-aberto">Em {{ t.dias_para_vencer }} dia{{ 's' if t.dias_para_vencer != 1 }}</span>
+      {% endif %}
+    </td>
+    <td>{{ t.nota.fornecedor.razao_social }}</td>
+    <td>{{ t.nota.numero }}{% if t.total_parcelas > 1 %} — {{ t.numero_parcela }}/{{ t.total_parcelas }}{% endif %}</td>
+    <td class="valor">{{ t.valor|moeda }}</td>
+    <td class="valor">{{ t.valor_pago|moeda if t.valor_pago else '—' }}</td>
+    <td>
+      {% if t.status == 'aberto' %}
+      <form method="post" action="{{ url_for('baixar_titulo', id_=t.id) }}">
+        <input type="hidden" name="data_pagamento" value="{{ hoje }}">
+        <input type="hidden" name="valor_pago" value="{{ t.valor }}">
+        <button type="submit" class="discreto">Registrar pagamento</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="vazio">Nenhum título neste filtro.</p>
+{% endif %}
+{% endblock %}
