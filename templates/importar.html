@@ -7,6 +7,9 @@
 
 <div class="areas">
   <div class="solta" data-tipo="danfe">
+    <svg class="simbolo" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <path fill="currentColor" d="M5 2h8l5 5v15H5V2Zm7 1.8V8h4.2L12 3.8ZM8 12h8v1.6H8V12Zm0 3.6h8v1.6H8v-1.6Z"/>
+    </svg>
     <p class="titulo-area">Nota fiscal</p>
     <p><strong>Arraste o DANFE aqui</strong></p>
     <p class="legenda">Traz fornecedor, número, valor e as parcelas.</p>
@@ -15,6 +18,9 @@
   </div>
 
   <div class="solta" data-tipo="boleto">
+    <svg class="simbolo" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <path fill="currentColor" d="M2 5h2v14H2V5Zm3.2 0h1.5v14H5.2V5Zm2.8 0h3v14H8V5Zm4.4 0h1.5v14h-1.5V5Zm2.9 0h2v14h-2V5Zm3.4 0H22v14h-3.3V5Z"/>
+    </svg>
     <p class="titulo-area">Boletos</p>
     <p><strong>Arraste os boletos aqui</strong></p>
     <p class="legenda">Completa vencimento, valor e linha digitável.</p>
@@ -22,6 +28,29 @@
     <input type="file" accept="application/pdf" multiple hidden>
   </div>
 </div>
+
+
+<section id="recentes">
+  <h2>Últimas notas lançadas</h2>
+  {% if recentes %}
+  <div class="quadro">
+  <table>
+    <tr><th>Nota</th><th>Fornecedor</th><th>Projeto</th><th>Parcelas</th><th class="valor">Valor</th></tr>
+    {% for n in recentes %}
+    <tr>
+      <td class="doc">{{ n.numero }}</td>
+      <td>{{ n.fornecedor.razao_social }}</td>
+      <td>{{ n.projeto or '—' }}</td>
+      <td>{{ n.titulos|length }}</td>
+      <td class="valor">{{ n.valor_total|moeda }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  {% else %}
+  <p class="vazio">Nenhuma nota lançada ainda. Solte o primeiro PDF acima.</p>
+  {% endif %}
+</section>
 
 <p id="situacao" class="legenda" hidden></p>
 <div id="avisos"></div>

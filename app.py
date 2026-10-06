@@ -136,12 +136,53 @@ def painel():
         total_pago_mes=pago_mes.with_entities(
             func.coalesce(func.sum(Titulo.valor_pago), 0)
         ).scalar() or Decimal("0.00"),
-        urgentes=vencidos.order_by(Titulo.vencimento).limit(8).all(),
+        urgentes=vencidos.order_by(Titulo.vencimento).limit(6).all(),
         sem_parcelas=[
             n for n in da_empresa(NotaFiscal)
             .filter_by(status=StatusNota.PENDENTE).all() if n.sem_titulos
         ],
+        regua=_regua_vencimentos(hoje),
     )
+
+
+DIAS_REGUA = 30
+
+
+def _regua_vencimentos(hoje, dias=DIAS_REGUA):
+    fim = hoje + timedelta(days=dias)
+    titulos = (
+        _titulos_validos()
+        .filter(Titulo.status == StatusTitulo.ABERTO,
+                Titulo.vencimento >= hoje, Titulo.vencimento <= fim)
+        .all()
+    )
+
+    por_dia = {}
+    for titulo in titulos:
+        acumulado = por_dia.setdefault(titulo.vencimento, {"total": Decimal("0.00"),
+                                                           "qtd": 0})
+        acumulado["total"] += titulo.valor
+        acumulado["qtd"] += 1
+
+    maior = max((d["total"] for d in por_dia.values()), default=Decimal("0.00"))
+    pico = max(por_dia.items(), key=lambda item: item[1]["total"])[0] if por_dia else None
+
+    dias_corridos = []
+    for passo in range(dias + 1):
+        data = hoje + timedelta(days=passo)
+        valores = por_dia.get(data, {"total": Decimal("0.00"), "qtd": 0})
+        altura = int(valores["total"] / maior * 100) if maior else 0
+        dias_corridos.append({
+            "data": data,
+            "total": valores["total"],
+            "qtd": valores["qtd"],
+            "altura": max(altura, 3) if valores["qtd"] else 0,
+            "fim_de_semana": data.weekday() >= 5,
+            "pico": data == pico,
+            "hoje": data == hoje,
+        })
+
+    return dias_corridos
 
 
 FILTROS = {
@@ -334,8 +375,10 @@ def gerar_parcelas(valor_total, quantidade, primeiro_vencimento, intervalo=30):
 def importar():
     fornecedores = da_empresa(Fornecedor).filter_by(ativo=True).order_by(
         Fornecedor.razao_social).all()
+    recentes = (da_empresa(NotaFiscal)
+                .order_by(NotaFiscal.criada_em.desc()).limit(5).all())
     return render_template("importar.html", fornecedores=fornecedores,
-                           projetos=_projetos_ativos())
+                           projetos=_projetos_ativos(), recentes=recentes)
 
 
 @app.route("/importar/ler", methods=["POST"])

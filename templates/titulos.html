@@ -42,7 +42,7 @@
       {% endif %}
     </td>
     <td>{{ t.nota.fornecedor.razao_social }}</td>
-    <td>{{ t.nota.numero }}{% if t.total_parcelas > 1 %} — {{ t.numero_parcela }}/{{ t.total_parcelas }}{% endif %}</td>
+    <td class="doc">{{ t.nota.numero }}{% if t.total_parcelas > 1 %}<span class="parcela">{{ t.numero_parcela }}/{{ t.total_parcelas }}</span>{% endif %}</td>
     <td class="valor">{{ t.valor|moeda }}</td>
     <td class="valor">{{ t.valor_pago|moeda if t.valor_pago else '—' }}</td>
     <td class="acao">

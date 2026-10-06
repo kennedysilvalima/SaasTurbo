@@ -2,8 +2,15 @@
 {% block titulo %}Painel{% endblock %}
 
 {% block conteudo %}
-<h1>Painel</h1>
-<p class="legenda">Situação em {{ hoje|data_br }}.</p>
+<div class="cabecalho">
+  <div>
+    <h1>Painel</h1>
+    <p class="legenda">Situação das contas a pagar em {{ hoje|data_br }}.</p>
+  </div>
+  <p class="acoes">
+    <a href="{{ url_for('importar') }}"><button type="button">Importar nota e boletos</button></a>
+  </p>
+</div>
 
 <dl class="resumo">
   <div class="alerta">
@@ -24,20 +31,62 @@
   <div class="quitado">
     <dt>Pago neste mês</dt>
     <dd>{{ total_pago_mes|moeda }}</dd>
-    <small>a partir do dia 1</small>
+    <small>desde o dia 1</small>
   </div>
 </dl>
 
+<div class="regua">
+  <div class="regua-topo">
+    <h2>Régua de vencimentos</h2>
+    <p class="legenda">Cada barra é um dia. Passe o mouse para ver o valor.</p>
+  </div>
+
+  <div class="grafico">
+    <div class="atrasado">
+      {% if qtd_vencido %}
+        <span class="rotulo">Atrasado</span>
+        <span class="cifra">{{ total_vencido|moeda }}</span>
+        <span class="quantos">{{ qtd_vencido }} título{{ 's' if qtd_vencido != 1 }}</span>
+      {% else %}
+        <span class="nada">Nada em atraso</span>
+      {% endif %}
+    </div>
+
+    <div class="barras">
+      {% for d in regua %}
+      <div class="dia {{ 'hoje' if d.hoje }}"
+           tabindex="{{ '0' if d.qtd else '-1' }}">
+        {% if d.qtd %}
+          {% if d.pico %}<span class="marcador">{{ d.total|moeda }}</span>{% endif %}
+          <span class="detalhe">
+            {{ d.data|data_br }}{% if d.hoje %} — hoje{% endif %}<br>
+            <b>{{ d.total|moeda }}</b> em {{ d.qtd }} título{{ 's' if d.qtd != 1 }}
+          </span>
+          <span class="barra" style="height: {{ d.altura }}%"></span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <p class="escala">
+    <span>hoje</span><span>+10 dias</span><span>+20 dias</span><span>+30 dias</span>
+  </p>
+</div>
+
 {% if sem_parcelas %}
-<h2>Notas sem parcelas lançadas</h2>
+<h2>Notas esperando boleto</h2>
+<p class="legenda">A nota foi lançada, mas nenhuma parcela tem vencimento definido.</p>
 <div class="quadro">
 <table>
-  <tr><th>Nota</th><th>Fornecedor</th><th class="valor">Valor</th></tr>
+  <tr><th>Nota</th><th>Fornecedor</th><th>Projeto</th><th class="valor">Valor</th><th></th></tr>
   {% for nota in sem_parcelas %}
   <tr>
     <td>{{ nota.numero }}</td>
     <td>{{ nota.fornecedor.razao_social }}</td>
+    <td>{{ nota.projeto or '—' }}</td>
     <td class="valor">{{ nota.valor_total|moeda }}</td>
+    <td class="acao"><a href="{{ url_for('editar_nota', id_=nota.id) }}">Informar vencimento</a></td>
   </tr>
   {% endfor %}
 </table>
@@ -50,20 +99,21 @@
 <table>
   <tr>
     <th>Vencimento</th><th>Atraso</th><th>Fornecedor</th>
-    <th>Nota</th><th class="valor">Valor</th>
+    <th>Nota</th><th class="valor">Valor</th><th></th>
   </tr>
   {% for t in urgentes %}
   <tr>
     <td>{{ t.vencimento|data_br }}</td>
     <td><span class="marca-situacao m-vencido">{{ t.dias_atraso }} dia{{ 's' if t.dias_atraso != 1 }}</span></td>
     <td>{{ t.nota.fornecedor.razao_social }}</td>
-    <td>{{ t.nota.numero }}{% if t.total_parcelas > 1 %} — {{ t.numero_parcela }}/{{ t.total_parcelas }}{% endif %}</td>
+    <td class="doc">{{ t.nota.numero }}{% if t.total_parcelas > 1 %}<span class="parcela">{{ t.numero_parcela }}/{{ t.total_parcelas }}</span>{% endif %}</td>
     <td class="valor">{{ t.valor|moeda }}</td>
+    <td class="acao"><a href="{{ url_for('titulos', filtro='vencidos') }}">Dar baixa</a></td>
   </tr>
   {% endfor %}
 </table>
 </div>
 {% else %}
-<p class="vazio">Nenhum título vencido em aberto.</p>
+<p class="vazio">Nenhum título vencido em aberto. Tudo em dia.</p>
 {% endif %}
 {% endblock %}

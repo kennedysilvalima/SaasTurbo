@@ -87,7 +87,7 @@
   <tr>
     <td>{{ t.vencimento|data_br }}</td>
     <td>{{ t.nota.fornecedor.razao_social }}</td>
-    <td>{{ t.nota.numero }} — {{ t.numero_parcela }}/{{ t.total_parcelas }}</td>
+    <td class="doc">{{ t.nota.numero }}<span class="parcela">{{ t.numero_parcela }}/{{ t.total_parcelas }}</span></td>
     <td>{{ t.nota.projeto or '—' }}</td>
     <td class="valor">{{ t.valor|moeda }}</td>
     <td>{{ t.data_pagamento|data_br }}</td>
